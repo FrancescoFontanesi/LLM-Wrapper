@@ -1,0 +1,12 @@
+# Byte-compiled / cache artifacts
+__pycache__/
+*.py[cod]
+
+# Virtual environments
+.venv/
+venv/
+
+# App runtime data
+cache/
+session/
+tmp/

@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=ChatGPT Wrapper
+Exec=/home/nihil/Extra/Chatgpt-PyGObject/chatgpt-wrapper %U
+Icon=internet-chat
+Categories=Network;Utility;
+StartupNotify=true
+StartupWMClass=chatgpt-wrapper

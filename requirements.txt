@@ -1,0 +1,2 @@
+# Runtime helper wheels; GI modules are provided by system packages
+PyGObject>=3.44
