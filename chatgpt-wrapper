@@ -82,6 +82,7 @@ class ChatGPTApplication(Gtk.Application):
         self.cookie_manager: WebKit2.CookieManager | None = None
         self.webview: WebKit2.WebView | None = None
         self._cleanup_timer_id: int = 0
+        self._reload_timer_id: int = 0
         self._activate_suppressed = False
         self._user_agent_override: str | None = None
 
@@ -197,6 +198,8 @@ class ChatGPTApplication(Gtk.Application):
         self.webview = WebKit2.WebView.new_with_context(self.context)
         self.webview.set_settings(settings)
         self._apply_user_agent(self._user_agent_override)
+        self.webview.connect("load-changed", self._on_webview_load_changed)
+        self.webview.connect("load-failed", self._on_webview_load_failed)
         self.webview.load_uri(URL)
 
         attach = getattr(self.window, "set_child", None)
@@ -226,6 +229,22 @@ class ChatGPTApplication(Gtk.Application):
             self._stop_hidden_cleanup_timer()
         else:
             self._start_hidden_cleanup_timer()
+
+    def _on_webview_load_changed(
+        self, _webview: WebKit2.WebView, load_event: WebKit2.LoadEvent
+    ) -> None:
+        if load_event == WebKit2.LoadEvent.FINISHED:
+            self._cancel_reload_retry()
+
+    def _on_webview_load_failed(
+        self,
+        _webview: WebKit2.WebView,
+        _load_event: WebKit2.LoadEvent,
+        _failing_uri: str,
+        _error: GLib.Error,
+    ) -> bool:
+        self._schedule_reload_retry()
+        return False
 
     def _on_window_realize(self, window: Gtk.ApplicationWindow, *_) -> None:
         if Gdk is None:
@@ -265,6 +284,27 @@ class ChatGPTApplication(Gtk.Application):
 
         GLib.source_remove(self._cleanup_timer_id)
         self._cleanup_timer_id = 0
+
+    def _schedule_reload_retry(self) -> None:
+        if self._reload_timer_id:
+            return
+
+        # Retry loading ChatGPT periodically until it succeeds.
+        def _retry() -> bool:
+            if self.webview is None:
+                return False
+
+            self.webview.load_uri(URL)
+            return True
+
+        self._reload_timer_id = GLib.timeout_add_seconds(60, _retry)
+
+    def _cancel_reload_retry(self) -> None:
+        if not self._reload_timer_id:
+            return
+
+        GLib.source_remove(self._reload_timer_id)
+        self._reload_timer_id = 0
 
 
 def main(argv: list[str]) -> int:
