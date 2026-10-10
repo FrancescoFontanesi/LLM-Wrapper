@@ -1,4 +1,4 @@
-# chatgpt-wrapper (GTK + WebKitGTK)
+# llm-wrapper (GTK + WebKitGTK)
 
 A lightweight desktop wrapper for web AI chats: ChatGPT by default, plus Gemini, Claude or any URL. Designed as a quick-summon desktop assistant via hotkeys/macros (such as Hyprland, Sway, or Quickshell HUD), featuring instant IPC, proactive RAM management, full file upload/download portal support, and layout containment for long chat histories. You can use it in two ways: one daemon with an instant provider switcher, or one standalone instance per provider.
 
@@ -22,7 +22,7 @@ A lightweight desktop wrapper for web AI chats: ChatGPT by default, plus Gemini,
   - **Clipboard**: `javascript_can_access_clipboard` enabled for seamless image paste (`Ctrl+V`).
 - **External Links**: Automatically routes external URLs (sources, citations, documentation) to your default desktop browser without leaving the chat.
 - **Assistant Keybindings**:
-  - `Escape`: Instantly dismiss/hide the assistant (the key is not forwarded to the page, so it won't close ChatGPT menus).
+  - `Escape`: Instantly dismiss/hide the assistant (the key is not forwarded to the page, so it won't close the chat's own menus).
   - `Ctrl+N`: Start a clean new chat.
   - `Ctrl+R` / `F5`: Reload page (`Ctrl+Shift+R` for hard reload).
   - `Ctrl++` / `Ctrl+-` / `Ctrl+0`: Zoom in, zoom out, and reset zoom.
@@ -67,8 +67,8 @@ source .venv/bin/activate
 Run or toggle the application from anywhere:
 
 ```bash
-./chatgpt-wrapper
-./chatgpt-wrapper [flags]
+./llm-wrapper
+./llm-wrapper [flags]
 ```
 
 The script understands several optional flags (they can be combined):
@@ -105,9 +105,9 @@ Built-in providers (used until a `providers.json` exists):
 `providers.json` is created on the first `--add-provider` or `--remove-provider`, holds the full list and overrides the built-ins. It lives in the repository directory and is gitignored.
 
 ```bash
-./chatgpt-wrapper --provider gemini            # switch the running window to Gemini
-./chatgpt-wrapper --provider https://chat.mistral.ai
-./chatgpt-wrapper --add-provider mistral https://chat.mistral.ai
+./llm-wrapper --provider gemini            # switch the running window to Gemini
+./llm-wrapper --provider https://chat.mistral.ai
+./llm-wrapper --add-provider mistral https://chat.mistral.ai
 ```
 
 Provider names must match `[A-Za-z0-9_-]{1,32}` and URLs must be http or https. Invalid input is reported on stderr and ignored.
@@ -119,10 +119,10 @@ Provider names must match `[A-Za-z0-9_-]{1,32}` and URLs must be http or https. 
 1. **Single daemon + switcher** (default): one window; `--provider` switches between providers instantly.
 2. **Standalone instances**: one daemon per provider, each started and addressed by name:
    ```bash
-   ./chatgpt-wrapper --instance gemini --provider gemini --background
-   ./chatgpt-wrapper --instance gemini --toggle
+   ./llm-wrapper --instance gemini --provider gemini --background
+   ./llm-wrapper --instance gemini --toggle
    ```
-   Each instance has its own socket, window class `chatgpt-wrapper-<name>` (for Hyprland rules), its own data under `instances/<name>/` (log in once per instance), and its own state file.
+   Each instance has its own socket, window class `llm-wrapper-<name>` (for Hyprland rules), its own data under `instances/<name>/` (log in once per instance), and its own state file.
 
 ---
 
@@ -133,34 +133,34 @@ For autostart and window behaviour, add the following to `hyprland.conf`.
 ### Autostart
 Launch the wrapper hidden on login:
 ```ini
-exec-once = /path/to/Chatgpt-PyGObject/chatgpt-wrapper --background
+exec-once = /path/to/LLM-PyGObject/llm-wrapper --background
 ```
 
 ### Floating Window Rules
 ```ini
-windowrulev2 = float, class:^(chatgpt-wrapper)$
-windowrulev2 = size 794 1286, class:^(chatgpt-wrapper)$
-windowrulev2 = move 78 74, class:^(chatgpt-wrapper)$
-windowrulev2 = pin, class:^(chatgpt-wrapper)$
+windowrulev2 = float, class:^(llm-wrapper)$
+windowrulev2 = size 794 1286, class:^(llm-wrapper)$
+windowrulev2 = move 78 74, class:^(llm-wrapper)$
+windowrulev2 = pin, class:^(llm-wrapper)$
 ```
 
 For a standalone instance, match its window class, e.g.:
 ```ini
-windowrulev2 = float, class:^(chatgpt-wrapper-gemini)$
+windowrulev2 = float, class:^(llm-wrapper-gemini)$
 ```
 
 ### Keybindings
 ```ini
-bind = $mainMod, G, exec, /path/to/Chatgpt-PyGObject/chatgpt-wrapper --toggle
-bind = $mainMod CTRL,  G, exec, /path/to/Chatgpt-PyGObject/chatgpt-wrapper --hard-clean
-bind = $mainMod SHIFT, G, exec, /path/to/Chatgpt-PyGObject/chatgpt-wrapper --new-chat
+bind = $mainMod, G, exec, /path/to/LLM-PyGObject/llm-wrapper --toggle
+bind = $mainMod CTRL,  G, exec, /path/to/LLM-PyGObject/llm-wrapper --hard-clean
+bind = $mainMod SHIFT, G, exec, /path/to/LLM-PyGObject/llm-wrapper --new-chat
 ```
 
 ---
 
 ## Integrating with Quickshell (or any UI)
 
-The running daemon writes its state to `$XDG_RUNTIME_DIR/chatgpt-wrapper.json` (or `chatgpt-wrapper-<name>.json` for an instance):
+The running daemon writes its state to `$XDG_RUNTIME_DIR/llm-wrapper.json` (or `llm-wrapper-<name>.json` for an instance):
 
 ```json
 {"instance": null, "active": "chatgpt", "url": "https://chatgpt.com", "visible": true, "providers": {"chatgpt": "https://chatgpt.com", "gemini": "https://gemini.google.com", "claude": "https://claude.ai"}}
@@ -174,7 +174,7 @@ The UI drives the daemon only through CLI commands (`--provider`, `--add-provide
 
 ## Desktop entry
 
-Edit [`chatgpt-wrapper.desktop`](chatgpt-wrapper.desktop) to point `Exec=` to the repository location,
+Edit [`llm-wrapper.desktop`](llm-wrapper.desktop) to point `Exec=` to the repository location,
 copy it to `~/.local/share/applications/`, then run:
 
 ```bash
@@ -186,9 +186,9 @@ update-desktop-database ~/.local/share/applications
 ## Project structure
 
 ```
-chatgpt-wrapper       # Ultra-fast CLI & IPC launcher (~2-5ms)
+llm-wrapper           # Ultra-fast CLI & IPC launcher (~2-5ms)
 app.py                # GTK3 + WebKitGTK application server
-chatgpt-wrapper.desktop
+llm-wrapper.desktop
 cache/                # WebKit on-disk cache (persisted for fast cold-starts)
 session/              # Persistent session, cookies, and local storage
 providers.json        # your provider list (optional, gitignored)

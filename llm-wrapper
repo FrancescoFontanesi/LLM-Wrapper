@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Ultra-fast launcher / CLI dispatcher for the web chat wrapper (ChatGPT by default;
+# Ultra-fast launcher / CLI dispatcher for llm-wrapper, the web chat wrapper (ChatGPT by default;
 # any web chat provider via --provider).
 # Dispatches toggle, show, hide, and clean actions in ~2-5ms via Unix domain socket.
 # If no instance is active, launches the primary GTK/WebKit backend.
@@ -14,9 +14,9 @@ for a in "$@"; do
     [ "$prev" = "--instance" ] && INSTANCE="$a"
     prev="$a"
 done
-case "$INSTANCE" in *[!A-Za-z0-9_-]*) echo "chatgpt-wrapper: invalid --instance name" >&2; exit 2 ;; esac
+case "$INSTANCE" in *[!A-Za-z0-9_-]*) echo "llm-wrapper: invalid --instance name" >&2; exit 2 ;; esac
 
-SOCK="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/chatgpt-wrapper${INSTANCE:+-$INSTANCE}.sock"
+SOCK="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/llm-wrapper${INSTANCE:+-$INSTANCE}.sock"
 
 # Fast-path: if wrapper daemon is active and nc is installed, dispatch immediately
 if [ -S "$SOCK" ] && command -v nc >/dev/null 2>&1; then

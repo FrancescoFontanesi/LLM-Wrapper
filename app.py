@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Optimized ChatGPT Application Core (GTK3 + WebKitGTK).
+Optimized LLM web chat wrapper core (GTK3 + WebKitGTK).
 
 - Single persistent instance with Unix socket IPC listener.
 - Preserves disk cache and service workers for instant cold/warm loads.
@@ -37,11 +37,11 @@ def _argv_value(argv, flag):
 
 INSTANCE = _argv_value(sys.argv[1:], "--instance")
 if INSTANCE is not None and not NAME_RE.fullmatch(INSTANCE):
-    sys.exit(f"[chatgpt-wrapper] invalid --instance name: {INSTANCE!r}")
+    sys.exit(f"[llm-wrapper] invalid --instance name: {INSTANCE!r}")
 SUFFIX = f"-{INSTANCE}" if INSTANCE else ""
 RUNTIME_DIR = Path(os.environ.get("XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}"))
-SOCK_PATH = RUNTIME_DIR / f"chatgpt-wrapper{SUFFIX}.sock"
-STATE_PATH = RUNTIME_DIR / f"chatgpt-wrapper{SUFFIX}.json"
+SOCK_PATH = RUNTIME_DIR / f"llm-wrapper{SUFFIX}.sock"
+STATE_PATH = RUNTIME_DIR / f"llm-wrapper{SUFFIX}.json"
 
 
 def try_fast_client(args: list[str]) -> bool:
@@ -112,10 +112,10 @@ try:
 except ImportError:
     GdkWayland = None
 
-APP_ID = "com.chatgpt.wrapper" + (f".i_{INSTANCE.replace('-', '_')}" if INSTANCE else "")
-WAYLAND_APP_ID = f"chatgpt-wrapper{SUFFIX}"
+APP_ID = "com.llm.wrapper" + (f".i_{INSTANCE.replace('-', '_')}" if INSTANCE else "")
+WAYLAND_APP_ID = f"llm-wrapper{SUFFIX}"
 GLib.set_prgname(WAYLAND_APP_ID)
-GLib.set_application_name("ChatGPT")
+GLib.set_application_name("LLM")
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "instances" / INSTANCE / "session" if INSTANCE else BASE_DIR / "session"
 CACHE_DIR = BASE_DIR / "instances" / INSTANCE / "cache" if INSTANCE else BASE_DIR / "cache"
@@ -192,7 +192,7 @@ def is_internal(uri: str, provider_url: str) -> bool:
 def send_notification(summary: str, body: str = "") -> None:
     try:
         subprocess.Popen(
-            ["notify-send", "-a", "chatgpt-wrapper", summary, body],
+            ["notify-send", "-a", "llm-wrapper", summary, body],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
@@ -200,7 +200,7 @@ def send_notification(summary: str, body: str = "") -> None:
         pass
 
 
-class ChatGPTApplication(Gtk.Application):
+class LLMApplication(Gtk.Application):
     """Optimized GTK application embedding WebKit with persistent storage."""
 
     def __init__(self) -> None:
@@ -327,11 +327,11 @@ class ChatGPTApplication(Gtk.Application):
             self._server_thread = threading.Thread(
                 target=self._socket_listener_worker,
                 daemon=True,
-                name="chatgpt-ipc-listener",
+                name="llm-ipc-listener",
             )
             self._server_thread.start()
         except Exception as err:
-            print(f"[chatgpt-wrapper] Error starting IPC socket server: {err}", file=sys.stderr)
+            print(f"[llm-wrapper] Error starting IPC socket server: {err}", file=sys.stderr)
 
     def _stop_socket_server(self) -> None:
         self._server_running = False
@@ -367,7 +367,7 @@ class ChatGPTApplication(Gtk.Application):
                     break
             except Exception as err:
                 if self._server_running:
-                    print(f"[chatgpt-wrapper] IPC listener error: {err}", file=sys.stderr)
+                    print(f"[llm-wrapper] IPC listener error: {err}", file=sys.stderr)
 
     def _execute_command_list(self, raw_args: list[str]) -> None:
         parser = argparse.ArgumentParser(add_help=False)
@@ -408,13 +408,13 @@ class ChatGPTApplication(Gtk.Application):
                 self._providers[name] = url
                 self._save_providers()
             else:
-                print(f"[chatgpt-wrapper] invalid provider: {name!r} {url!r}", file=sys.stderr)
+                print(f"[llm-wrapper] invalid provider: {name!r} {url!r}", file=sys.stderr)
 
         if args.remove_provider:
             if self._providers.pop(args.remove_provider, None) is not None:
                 self._save_providers()
             else:
-                print(f"[chatgpt-wrapper] unknown provider: {args.remove_provider!r}", file=sys.stderr)
+                print(f"[llm-wrapper] unknown provider: {args.remove_provider!r}", file=sys.stderr)
 
         self._ensure_window()
         provider = self._resolve_provider(args.provider) if args.provider else None
@@ -450,7 +450,7 @@ class ChatGPTApplication(Gtk.Application):
 
     # Public actions ----------------------------------------------------
     def new_chat(self) -> None:
-        """Navigates to the clean ChatGPT root URL."""
+        """Navigates to the active provider root URL."""
         if self.webview is not None:
             self.webview.load_uri(self._url_for(self._active))
 
@@ -482,7 +482,7 @@ class ChatGPTApplication(Gtk.Application):
             return
 
         self.window = Gtk.ApplicationWindow(application=self)
-        self.window.set_title("ChatGPT")
+        self.window.set_title("LLM")
         self.window.set_default_size(794, 1286)
         self.window.set_role(WAYLAND_APP_ID)
         try:
@@ -560,14 +560,14 @@ class ChatGPTApplication(Gtk.Application):
     def _resolve_provider(self, value: str) -> str | None:
         if value in self._providers or is_valid_url(value):
             return value
-        print(f"[chatgpt-wrapper] unknown provider or invalid URL: {value!r}", file=sys.stderr)
+        print(f"[llm-wrapper] unknown provider or invalid URL: {value!r}", file=sys.stderr)
         return None
 
     def _save_providers(self) -> None:
         try:
             PROVIDERS_FILE.write_text(json.dumps(self._providers, indent=2) + "\n")
         except OSError as err:
-            print(f"[chatgpt-wrapper] cannot write {PROVIDERS_FILE}: {err}", file=sys.stderr)
+            print(f"[llm-wrapper] cannot write {PROVIDERS_FILE}: {err}", file=sys.stderr)
         self._write_state()
 
     def _write_state(self) -> None:
@@ -583,7 +583,7 @@ class ChatGPTApplication(Gtk.Application):
             tmp.write_text(json.dumps(state, indent=2))
             os.replace(tmp, STATE_PATH)
         except OSError as err:
-            print(f"[chatgpt-wrapper] cannot write state file: {err}", file=sys.stderr)
+            print(f"[llm-wrapper] cannot write state file: {err}", file=sys.stderr)
 
     def _create_user_content_manager(self) -> WebKit2.UserContentManager:
         ucm = WebKit2.UserContentManager()
@@ -934,7 +934,7 @@ class ChatGPTApplication(Gtk.Application):
             "_Save",
             "_Cancel",
         )
-        dialog.set_current_name(suggested_filename or "chatgpt_download")
+        dialog.set_current_name(suggested_filename or "download")
 
         downloads_dir = GLib.get_user_special_dir(GLib.UserDirectory.DIRECTORY_DOWNLOAD)
         if downloads_dir and os.path.isdir(downloads_dir):
@@ -1090,7 +1090,7 @@ class ChatGPTApplication(Gtk.Application):
 
 
 def main(argv: list[str]) -> int:
-    app = ChatGPTApplication()
+    app = LLMApplication()
     return app.run(argv)
 
 
