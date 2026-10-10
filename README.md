@@ -133,7 +133,7 @@ For autostart and window behaviour, add the following to `hyprland.conf`.
 ### Autostart
 Launch the wrapper hidden on login:
 ```ini
-exec-once = /path/to/LLM-PyGObject/llm-wrapper --background
+exec-once = /path/to/LLM-Wrapper/llm-wrapper --background
 ```
 
 ### Floating Window Rules
@@ -151,9 +151,9 @@ windowrulev2 = float, class:^(llm-wrapper-gemini)$
 
 ### Keybindings
 ```ini
-bind = $mainMod, G, exec, /path/to/LLM-PyGObject/llm-wrapper --toggle
-bind = $mainMod CTRL,  G, exec, /path/to/LLM-PyGObject/llm-wrapper --hard-clean
-bind = $mainMod SHIFT, G, exec, /path/to/LLM-PyGObject/llm-wrapper --new-chat
+bind = $mainMod, G, exec, /path/to/LLM-Wrapper/llm-wrapper --toggle
+bind = $mainMod CTRL,  G, exec, /path/to/LLM-Wrapper/llm-wrapper --hard-clean
+bind = $mainMod SHIFT, G, exec, /path/to/LLM-Wrapper/llm-wrapper --new-chat
 ```
 
 ---

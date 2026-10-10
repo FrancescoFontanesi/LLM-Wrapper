@@ -1,7 +1,7 @@
 [Desktop Entry]
 Type=Application
 Name=LLM Wrapper
-Exec=/home/nihil/Extra/LLM-PyGObject/llm-wrapper %U
+Exec=/home/nihil/Extra/LLM-Wrapper/llm-wrapper %U
 Icon=internet-chat
 Categories=Network;Utility;
 StartupNotify=true
