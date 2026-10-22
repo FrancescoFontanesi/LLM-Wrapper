@@ -7,14 +7,18 @@ Work proceeds in phases; the legacy app keeps working untouched until the Rust o
 |---|---|
 | 0 — executable specification of the legacy behaviour, baseline measurements | done |
 | 1 — wire protocol, validation, command-line client | done |
-| 2 — GTK4 + WebKitGTK 6.0 daemon | not started |
-| 3–5 — providers/navigation, memory policy, packaging | not started |
+| 2 — GTK4 + WebKitGTK 6.0 daemon (`llm-wrapperd`): window, control socket, XDG storage, single instance | done — the whole e2e suite passes against it |
+| 3 — navigation policy, per-provider compatibility profile (User-Agent, stealth), permissions, downloads/uploads | not started |
+| 4 — memory policy (reap the web process while hidden and idle) | not started |
+| 5 — packaging, retirement of the Python app | not started |
 
 ```
 crates/protocol   wire format, validation, CLI grammar — no dependencies, parses untrusted bytes
+crates/platform   runtime directory checks, socket client, private files — no dependencies
 crates/ctl        the `llm-wrapper` command (client; starts the daemon when none runs)
+crates/daemon     `llm-wrapperd`: GTK4 + WebKitGTK 6.0 window, control socket, state (gtk4, webkit6, serde_json)
 crates/e2e        black-box suite + fake chat site + benchmark; drives any implementation
-scripts/          build-release.sh (static client), e2e.sh (suite / benchmark under Xvfb)
+scripts/          build-release.sh (static client + daemon), e2e.sh (suite / benchmark under Xvfb)
 ../docs/          spec.md, wire-protocol.md, security.md, baseline-legacy.json
 ```
 
@@ -24,18 +28,28 @@ scripts/          build-release.sh (static client), e2e.sh (suite / benchmark un
 cargo test --workspace                 # unit + integration; e2e tests skip without a display
 cargo clippy --workspace --all-targets -- -D warnings
 cargo fmt --all --check
-scripts/build-release.sh [DIR]         # static-pie `llm-wrapper` client, built with --locked
+scripts/build-release.sh [DIR]         # static-pie `llm-wrapper` client + `llm-wrapperd`, built with --locked
 scripts/e2e.sh                         # the spec against the legacy app (xvfb-run, dbus-daemon, python3-gi, WebKitGTK 4.1)
 scripts/e2e.sh --impl rust --rust-bin DIR
 scripts/e2e.sh --bench out.json
 ```
 
-* Rust **1.80** or newer for the shipped crates (`rust-version`, checked: 1.79 fails).
+* Rust **1.80** or newer for `protocol`, `platform` and `ctl` (`rust-version`, checked: 1.79 fails);
+  **1.89** for the daemon (`File::try_lock`, and the gtk-rs 0.10 bindings).
+* The daemon needs the GTK 4 and WebKitGTK 6.0 development packages to build (`libgtk-4-dev`,
+  `libwebkitgtk-6.0-dev`; developed and tested with GTK 4.14.5 and WebKitGTK 2.52.6, older versions
+  unverified), and `bubblewrap` + `xdg-dbus-proxy` at run time so that WebKit can sandbox its web
+  process.
+* Running the daemon by hand: put `llm-wrapper` and `llm-wrapperd` in the same directory and run
+  `llm-wrapper --show`. The client never looks for the daemon anywhere else.
 * `LW_STRICT=1` turns every "skipped: prerequisite missing" in the e2e suite into a failure — use it
   in CI. `LW_SLOW=1` adds the 40-second network-recovery scenario. `LW_KEEP=1` keeps each test's
   sandbox directory for inspection.
-* Quality gates: `unsafe` is forbidden, clippy `all` and `pedantic` are errors, production crates
-  have no third-party dependencies. Details and the proof per control: `../docs/security.md`.
+* Quality gates: `unsafe` is forbidden in every crate of this workspace, clippy `all` and `pedantic`
+  are errors, and the client side (`protocol`, `platform`, `ctl`) has no third-party dependencies.
+  Details and the proof per control: `../docs/security.md`.
+* Some daemon unit tests need root (`ipc::tests::a_connection_from_another_user_is_refused` runs a
+  client as uid 65534) and say `SKIP` otherwise.
 
 ## Licence
 

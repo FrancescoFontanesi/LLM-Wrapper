@@ -334,7 +334,12 @@ fn the_legacy_socket_is_never_spoken_to() {
     let legacy =
         std::os::unix::net::UnixListener::bind(dir.path().join("llm-wrapper.sock")).unwrap();
     legacy.set_nonblocking(true).unwrap();
-    let out = run_client(dir.path(), &["--show"]); // no v1 daemon: tries to start one, finds none installed
+    // no v1 daemon: the client tries to start one and finds none installed next to itself (a copy
+    // of the client in a private directory, so a `llm-wrapperd` built in the workspace is not there)
+    let bin = TestDir::new("legacy-bin");
+    let client = bin.path().join("llm-wrapper");
+    std::fs::copy(CLIENT, &client).unwrap();
+    let out = common::run_binary(&client, dir.path(), &["--show"], &[]);
     assert_eq!(out.code, 3, "{}", out.stderr);
     assert!(
         legacy.accept().is_err(),

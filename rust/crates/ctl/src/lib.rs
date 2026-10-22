@@ -5,6 +5,6 @@
 //! the runtime directory, the socket and the daemon binary before trusting any of them.
 
 pub mod app;
-pub mod client;
 pub mod daemon;
-pub mod runtime;
+
+pub use llm_wrapper_platform::{client, runtime};

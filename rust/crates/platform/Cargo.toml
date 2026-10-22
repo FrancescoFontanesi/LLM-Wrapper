@@ -1,0 +1,15 @@
+[package]
+name = "llm-wrapper-platform"
+description = "What the llm-wrapper client and daemon share: runtime directory and socket checks, private files, IPC client"
+version.workspace = true
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
+publish.workspace = true
+rust-version = "1.80"
+
+[lints]
+workspace = true
+
+[dependencies]
+llm-wrapper-protocol = { path = "../protocol" }

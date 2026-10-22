@@ -1,8 +1,8 @@
 # Security model
 
 What the Rust code defends against, what it deliberately does not, and the test that proves each
-claim. Written for Phase 1 (protocol + client); sections marked **Phase 2+** are requirements the
-daemon must meet, already encoded as tests that currently skip because the daemon does not exist.
+claim. Written for Phases 1 (protocol + client) and 2 (daemon). Each control names the test that proves it;
+the last section lists what is not defended or not yet done.
 
 ## Assets and boundaries
 
@@ -43,8 +43,10 @@ the cookies, ptrace the daemon and replace the binary; no wrapper can change tha
 | 17 | Non-UTF-8 and oversized arguments are usage errors. | `non_utf8_and_oversized_arguments_are_usage_errors` |
 
 Supply chain and language: `unsafe` is `forbid`den workspace-wide (cannot be re-allowed by an
-inner attribute); production crates have **no third-party dependencies** (`cargo tree -e normal`
-shows only `llm-wrapper-protocol`; `serde_json` and `url` appear only in tests); release builds use
+inner attribute); `protocol`, `platform` and `ctl` — everything the *client* runs — have **no
+third-party dependencies** (`cargo tree -e normal -p llm-wrapper-ctl`; `serde_json` and `url`
+appear only in tests). The daemon adds exactly three: `gtk4`, `webkit6` (the gtk-rs bindings, whose
+own `unsafe` is the price of talking to a C toolkit) and `serde_json`. Release builds use
 `panic = "abort"`, `--locked`, and clippy `all` + `pedantic` as errors. The client builds with Rust
 1.80 and is released as a static-pie binary (no loader, no shared libraries).
 
@@ -60,19 +62,50 @@ injected into the legacy app against the parity suite. Three of my first attempt
 caught — the mutation had not been applied, was incomplete, or was exercised by the wrong filter —
 which is why the results above were re-run with substitutions that fail loudly when they do not apply.
 
-## Requirements for the daemon (Phase 2+), already encoded as tests
+### How the daemon's tests were checked (Phase 2)
 
-| Requirement | Test (skips until the daemon exists) |
-|---|---|
-| Login data, cache, config, socket, state file: directories `0700`, files `0600`; verified at start, not just created (no symlinks, owned by us). | `d07` |
-| The socket is created `0600` in a verified `0700` directory and each connection's peer uid is checked (`SO_PEERCRED`). | `d07` + new test |
-| No head-of-line blocking: one idle connection cannot delay others; every connection has a deadline. | `d10` |
-| Reply after acting; refusals reach the caller. | `d01`, `d02` |
-| A corrupt provider list is preserved, not overwritten. | `d08` |
-| Providers are `https` (or loopback `http`); navigation to `file:`, `javascript:`, `data:` as a top-level target is blocked; external links go to the default browser. | `d03`, `d02`; navigation policy tests in Phase 3 |
-| Web content runs in the WebKit sandbox. **Measured:** WebKitGTK 4.1 (the legacy app) starts its web process with *no* sandbox; WebKitGTK 6.0 starts it inside `bwrap` + `xdg-dbus-proxy`. This is the concrete security reason for GTK4. | Phase 2 check |
-| Permissions (microphone, camera, geolocation, notifications) denied by default; DevTools off by default. | Phase 3 |
-| Single instance enforced by the socket and a lock, never by unlinking a live socket. | `p11`, `p12` |
+Same method: break the code on purpose, expect a test to fail, and treat a survivor as a finding.
+32 faults in the platform and daemon logic (each plan rule, each ownership/mode/symlink check, atomic
+replacement, lock, deadlines, the in-flight cap, answer-after-action) were run against the unit
+tests: 30 were caught at once.
+
+* **One survivor was a real bug, in production code.** The peer-credential check used
+  `gio::Credentials::is_same_user`. For a *different* user GLib returns FALSE **without setting an
+  error**, and the gio-rs binding then returns `Ok(())` in a release build (the check passes for
+  everybody) and panics in a debug build. The check had no test; the new one (`ipc::tests::
+  a_connection_from_another_user_is_refused`, a client run as uid 65534 against a socket opened to
+  everybody) first *passed by accident* through the panic, which is how the mutation `|| true`
+  survived. The daemon now compares `SO_PEERCRED` uids itself (`is_us`), fails closed when the
+  credentials cannot be read, and the test also fails on any panic. All three mutations of that
+  function (`|| true`, unreadable credentials accepted, back to `is_same_user`) are caught.
+* The other survivor is an equivalent mutant: re-tightening a directory right after creating it
+  with mode `0700` can never change anything, since a umask only removes bits. It stays as a guard
+  against a directory that appears concurrently, next to the check that refuses one that is not ours.
+* An end-to-end test (`s10`) found a second real bug the unit tests could not: WebKit rejects the
+  memory-pressure settings (a conservative threshold not below the strict one) with a `CRITICAL` line
+  on stderr and carries on — the conservative threshold silently stayed at WebKit's default. Fixed
+  (the strict threshold is set first); `s10` now fails on any toolkit warning.
+
+## Controls in the daemon (Phase 2) and their proof
+
+| # | Control | Test |
+|---|---|---|
+| 18 | Data, cache and config roots, their parents created by us, and the leaf directories are `0700`, ours, not links; checked at **every** start. A loose mode on our own directory is tightened and logged; a symlink or a foreign owner is refused (exit 4). Everything the daemon writes itself (socket, state, lock, provider list) is `0600`; WebKit's own files inside a `0700` root keep WebKit's mode and are protected by the root. | `private::tests::*`, `paths::tests::*`, e2e `d07`, `s04`, `s06` |
+| 19 | Atomic replacement: a sibling `*.tmp` created exclusively (`O_EXCL`, `0600`, so a planted link is never followed), then `rename`. Readers never see half a file; no temporary stays. | `private::tests::*`, `state::tests::*`, e2e `p05`, `p13`, `s04` |
+| 20 | The provider list is read only if it is a regular file of ours that nobody else can write, at most 64 KiB. Otherwise it is **moved aside** (`providers.json.untrusted-<time>` / `.corrupt-<time>` / `.dropped-<time>`), never followed, never silently overwritten, and the built-in list takes over. | `providers::tests::*`, e2e `d08`, `s05` |
+| 21 | One daemon per instance: an exclusive `flock` that the kernel releases when the process dies (no stale locks); the lock decides who may remove a stale socket, and only a socket of ours is ever removed. A live daemon's socket is never touched. | `instance::tests::*`, e2e `p11`, `p12`, `s03`, `s09` |
+| 22 | The socket is bound inside the verified `0700` runtime directory and chmod-ed `0600`. Each connection's peer uid is read with `SO_PEERCRED` (through GIO, no `unsafe`) and anything but our own uid is dropped without a word — **even if the file permissions were opened up**. | `ipc::tests::a_connection_from_another_user_is_refused` (needs root: it runs a client as uid 65534; skipped otherwise), e2e `s04` |
+| 23 | Every connection is its own task with a one-second deadline for the request and another for the answer; a client that connects and says nothing, trickles bytes, or stops half way costs a timer and is cut off. At most 32 at once; the rest are told *busy*. Neither affects anybody else. | `ipc::tests::*` (idle, trickling, flood), e2e `d10`, `s01`, `s02` |
+| 24 | Garbage is not answered (bad magic, wrong frame kind); an unknown protocol version, an oversized or malformed request is answered with a reason. Frames are bounded before the body is read and every field is validated again by the daemon. | `ipc::tests::garbage_*`, `…clear_answer`, e2e `s01` |
+| 25 | A command is answered after it has been carried out, so `OK` is true and a refusal reaches the caller. A refused first command leaves no daemon. | `ipc::tests::*`, e2e `d01`, `d02`, `s07` |
+| 26 | The daemon holds nothing on to: file descriptors do not grow after a burst of 200 idle connections; no GLib/GTK/WebKit `CRITICAL` or `WARNING` appears in a normal session (this found a real misuse of the WebKit memory-pressure API during Phase 2). | e2e `s02`, `s10` |
+| 27 | `SIGTERM`/`SIGINT`/`SIGHUP` remove socket and state; a killed daemon leaves nothing that blocks the next. | e2e `s08`, `s09` |
+| 28 | Web content runs in the WebKit sandbox. **Measured:** WebKitGTK 4.1 (the legacy app) starts its web process with *no* sandbox; WebKitGTK 6.0 starts it inside `bwrap` + `xdg-dbus-proxy`. This is the concrete security reason for GTK4. `file:` navigation is refused. | observed in the process tree (`d09` finds `WebKitWebProcess` under `bwrap`); `app::forbid_file_navigation` |
+| 29 | Camera and microphone are off (`enable_media_stream = false`), so no page can ask for them. DevTools are enabled **only** for the F12 key that the README promises. | spec V11 |
+
+Not implemented yet (Phase 3): the full navigation policy (external links to the default browser,
+popups for OAuth), a permission handler for the remaining permission types (geolocation,
+notifications), download and upload handling.
 
 ## Known residual risks (Phase 1)
 

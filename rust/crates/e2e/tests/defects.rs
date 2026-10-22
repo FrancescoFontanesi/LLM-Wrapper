@@ -21,7 +21,7 @@ macro_rules! running {
             return;
         };
         if !sb.has_daemon() {
-            skip!("no Rust daemon yet (Phase 2), or no display to open its window");
+            skip!("no Rust daemon built, or no display to open its window");
         }
         let chat = FakeChat::start();
         sb.start_hidden(&chat.url());
@@ -145,13 +145,20 @@ fn d06_an_oversized_argument_is_refused_not_silently_dropped() {
     );
 }
 
-fn walk(dir: &Path, out: &mut Vec<(std::path::PathBuf, u32)>) {
+/// Collect what other users could actually reach under `dir`: a path is exposed only if its own
+/// mode allows it *and* every directory above it (down from the root being examined) can be
+/// traversed. WebKit creates its files with the default umask (0644/0755), so what keeps them
+/// private is the `0700` root, and that is exactly what this checks.
+fn exposed_below(dir: &Path, reachable: bool, out: &mut Vec<(std::path::PathBuf, u32)>) {
     let Ok(rd) = fs::read_dir(dir) else { return };
     for e in rd.flatten() {
         let meta = fs::symlink_metadata(e.path()).unwrap();
-        out.push((e.path(), meta.permissions().mode()));
+        let mode = meta.permissions().mode();
+        if reachable && mode & 0o077 != 0 {
+            out.push((e.path(), mode));
+        }
         if meta.is_dir() {
-            walk(&e.path(), out);
+            exposed_below(&e.path(), reachable && mode & 0o001 != 0, out);
         }
     }
 }
@@ -166,11 +173,15 @@ fn d07_login_data_socket_and_state_are_private_to_the_user() {
         || {
             thread::sleep(SECS(2)); // let WebKit create its files
             let mut entries = Vec::new();
-            for d in sb.data_dirs() {
-                let meta = fs::symlink_metadata(&d)
-                    .unwrap_or_else(|_| panic!("{} does not exist", d.display()));
-                entries.push((d.clone(), meta.permissions().mode()));
-                walk(&d, &mut entries);
+            for root in sb.data_dirs() {
+                let meta = fs::symlink_metadata(&root)
+                    .unwrap_or_else(|_| panic!("{} does not exist", root.display()));
+                let mode = meta.permissions().mode();
+                // the root itself is judged on its own: the directories above it are normal user directories
+                if mode & 0o077 != 0 {
+                    entries.push((root.clone(), mode));
+                }
+                exposed_below(&root, mode & 0o001 != 0, &mut entries);
             }
             for p in [sb.socket_path(None), sb.state_path(None)] {
                 entries.push((
@@ -236,7 +247,7 @@ fn d09_a_web_process_crash_is_recovered() {
         return;
     };
     if !sb.has_daemon() {
-        skip!("no Rust daemon yet (Phase 2), or no display to open its window");
+        skip!("no Rust daemon built, or no display to open its window");
     }
     let chat = FakeChat::start();
     let pid = sb.start(&["--background", "--provider", &chat.url()]);

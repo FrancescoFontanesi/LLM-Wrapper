@@ -252,7 +252,7 @@ impl Sandbox {
         self.imp == Impl::Legacy
     }
 
-    /// The Rust implementation has no daemon yet (Phase 2): tests that need one skip.
+    /// Whether a daemon (and a display for its window) is available: tests that need one skip otherwise.
     pub fn has_daemon(&self) -> bool {
         match &self.rust_bin {
             Some(b) => b.join("llm-wrapperd").exists() && has_display(),
@@ -302,8 +302,14 @@ impl Sandbox {
     // ---- running things -----------------------------------------------------------------------
 
     fn base_command(&self, args: &[&str]) -> Command {
-        let mut cmd = Command::new(&self.launcher);
-        cmd.args(args).env_clear();
+        let mut cmd = self.command_for(&self.launcher);
+        cmd.args(args);
+        cmd
+    }
+
+    fn command_for(&self, program: &Path) -> Command {
+        let mut cmd = Command::new(program);
+        cmd.env_clear();
         for key in [
             "PATH",
             "DISPLAY",
@@ -343,7 +349,26 @@ impl Sandbox {
     }
 
     pub fn run_os(&self, args: Vec<OsString>, limit: Duration) -> Out {
-        let mut cmd = self.base_command(&[]);
+        self.run_program(&self.launcher.clone(), args, limit)
+    }
+
+    /// Run `llm-wrapperd` itself (Rust only), the way the client does when no daemon runs. With a
+    /// daemon already running it must hand the command over and exit.
+    pub fn run_daemon_binary(&self, args: &[&str]) -> Out {
+        let bin = self
+            .rust_bin
+            .as_ref()
+            .expect("the Rust implementation only")
+            .join("llm-wrapperd");
+        self.run_program(
+            &bin,
+            args.iter().map(OsString::from).collect(),
+            Duration::from_secs(25),
+        )
+    }
+
+    fn run_program(&self, program: &Path, args: Vec<OsString>, limit: Duration) -> Out {
+        let mut cmd = self.command_for(program);
         cmd.args(args).stdout(Stdio::piped()).stderr(Stdio::piped());
         let start = Instant::now();
         let mut child = spawn_retrying(&mut cmd);
@@ -406,7 +431,17 @@ impl Sandbox {
     }
 
     pub fn daemon_exited(&mut self, index: usize) -> bool {
-        self.daemons[index].1.try_wait().unwrap().is_some()
+        self.daemon_exit_code(index).is_some()
+    }
+
+    /// Exit code of the `index`-th process started with [`Sandbox::start`], once it has exited
+    /// (`-1` when a signal ended it).
+    pub fn daemon_exit_code(&mut self, index: usize) -> Option<i32> {
+        self.daemons[index]
+            .1
+            .try_wait()
+            .unwrap()
+            .map(|s| s.code().unwrap_or(-1))
     }
 
     /// pids of the daemon process(es) of this sandbox (not WebKit helpers, not the bus).

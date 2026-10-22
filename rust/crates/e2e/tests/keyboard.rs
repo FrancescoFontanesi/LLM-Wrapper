@@ -16,7 +16,7 @@ const SECS: fn(u64) -> Duration = Duration::from_secs;
 macro_rules! daemon_or_skip {
     ($sb:expr) => {
         if !$sb.has_daemon() {
-            skip!("no Rust daemon yet (Phase 2), or no display to open its window");
+            skip!("no Rust daemon built, or no display to open its window");
         }
     };
 }
@@ -104,7 +104,7 @@ fn k02_d11_after_a_network_failure_the_page_you_were_on_comes_back() {
         return;
     };
     if !sb.has_daemon() {
-        skip!("no Rust daemon yet (Phase 2), or no display to open its window");
+        skip!("no Rust daemon built, or no display to open its window");
     }
     let mut chat = FakeChat::start();
     let pid = sb.start(&["--background", "--provider", &chat.url()]);

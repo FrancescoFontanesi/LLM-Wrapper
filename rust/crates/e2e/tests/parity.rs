@@ -19,7 +19,7 @@ fn builtins() -> Value {
 macro_rules! daemon_or_skip {
     ($sb:expr) => {
         if !$sb.has_daemon() {
-            skip!("no Rust daemon yet (Phase 2), or no display to open its window");
+            skip!("no Rust daemon built, or no display to open its window");
         }
     };
 }

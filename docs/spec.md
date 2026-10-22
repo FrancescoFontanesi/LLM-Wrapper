@@ -27,8 +27,9 @@ Test families (all under `rust/crates/e2e/tests/`):
 |---|---|---|
 | `p` | `parity.rs` | Must behave identically in legacy and Rust. |
 | `d` | `defects.rs` | Legacy **fails** these (expected failure, enforced); Rust must pass. |
-| `c` | `contract.rs` | Client-only contract; runs against the Rust client already (Phase 1). |
+| `c` | `contract.rs` | Client-only contract; needs no daemon. |
 | `k` | `keyboard.rs` | Real key/mouse input on X11. Own binary: see the note in the file. |
+| `s` | `daemon.rs` | What only the Rust daemon promises: hostile peers, one instance, private files, no planted links, clean shutdown. Skipped on legacy. |
 
 A legacy test that unexpectedly *passes* fails the suite, so this document cannot drift.
 
@@ -92,6 +93,29 @@ with `ast`; identical on Python 3.12 and 3.13).
    it as it is** (the legacy app shows it after *every* command; see D13). A daemon started by a
    command that does not show the window therefore starts hidden.
 
+### Daemon behaviours specific to the Rust implementation
+
+* The first command line of a daemon (the one that started it) is executed like any other: a bare
+  start toggles (so a new daemon shows its window, as the bash launcher did); `--background` starts
+  hidden. If that first command is refused, the daemon exits 1 and leaves nothing behind (`s07`).
+* A second process started for an instance that is already running does not start a window: it
+  hands its command over (`flock` decides who owns the instance, so simultaneous starts leave
+  exactly one daemon: `s03`) and exits with that daemon's verdict.
+* A command is answered only **after** it has been carried out, so a reply of `OK` is true; a
+  refusal carries its reason (`d01`).
+* A web process that crashes is reloaded (at most 3 times a minute), a page that failed because
+  the network was down comes back on its own URL when the network returns or within 30 s (`d09`,
+  `k02`/D11).
+* Keys: Escape hides, Ctrl+N new chat, Ctrl+R / F5 reload, Ctrl+plus / Ctrl+minus / Ctrl+0 zoom
+  (Shift allowed, `+` needs it on a US layout), F12 the Web Inspector — as in the README (`k01` types
+  Escape, F5, Ctrl+R, Ctrl+Shift+R, Ctrl+N and the zoom keys; the Inspector is not driven, see the
+  list at the end).
+* `SIGTERM`/`SIGINT`/`SIGHUP` stop the daemon like `--quit`: socket and state file removed (`s08`).
+  After `SIGKILL` the lock vanishes with the process and a stale socket is replaced (`s09`, `p12`).
+* While no `DBUS_SYSTEM_BUS_ADDRESS` is reachable WebKit cannot read the power profile, which is how
+  the legacy app avoids the 30 fps cap in power-saver mode; the Rust daemon sets the same variable
+  before anything else. **Not verified on real power-saver hardware.**
+
 ### Behaviours kept on purpose
 
 * **Q1** `--toggle --show` hides a visible window (toggle wins); `--hide --show` shows (`p02`).
@@ -109,12 +133,13 @@ a key of its own).
 
 ## 3. Files, state and identity
 
-| Item | Legacy | Rust (planned, Phase 2) |
+| Item | Legacy | Rust |
 |---|---|---|
 | State file (public API, read by Quickshell) | `$XDG_RUNTIME_DIR/llm-wrapper[-NAME].json` | **same name, same schema** |
 | Socket | `$XDG_RUNTIME_DIR/llm-wrapper[-NAME].sock` | `llm-wrapper[-NAME].v1.sock` (see V08) |
-| Login data / cache | `./session`, `./cache` (`instances/NAME/…`) in the repository | `$XDG_DATA_HOME/llm-wrapper`, `$XDG_CACHE_HOME/llm-wrapper` |
-| Provider list | `./providers.json` | `$XDG_CONFIG_HOME/llm-wrapper/providers.json` |
+| Login data / cache | `./session`, `./cache` (`instances/NAME/…`) in the repository | `$XDG_DATA_HOME/llm-wrapper`, `$XDG_CACHE_HOME/llm-wrapper` (`…/instances/NAME` for an instance); defaults `~/.local/share`, `~/.cache`; every directory `0700`, verified at each start |
+| Provider list | `./providers.json` | `$XDG_CONFIG_HOME/llm-wrapper/providers.json` (`~/.config`), shared by all instances, `0600` |
+| Single-instance lock | none (a socket probe) | `$XDG_RUNTIME_DIR/llm-wrapper[-NAME].lock`, an exclusive `flock` the kernel drops when the daemon dies |
 | Window class / Wayland `app_id` | `llm-wrapper[-NAME]` | **same** |
 
 State file schema (exactly these keys, `p01`):
@@ -131,7 +156,11 @@ Window class: `WM_CLASS = ("llm-wrapper", "llm-wrapper")` on X11, `("llm-wrapper
 instance (`p08`, `p09`). On Wayland the `app_id` is `llm-wrapper` — **checked by hand** on a headless
 sway, not in the automated suite. With GTK4 a `GtkApplication` would turn the class into its
 application-id and break users' Hyprland rules, so the Rust daemon must not use `GtkApplication`
-(measured: plain `GtkWindow` + `prgname` keeps `llm-wrapper`).
+(measured: plain `GtkWindow` + `prgname` keeps `llm-wrapper`; `p09` passes against the Rust daemon).
+
+The existing login sessions and provider list of the legacy app are **not migrated** (they live in the
+repository checkout): log in once again, and copy
+`providers.json` to `$XDG_CONFIG_HOME/llm-wrapper/` if you added providers.
 
 ---
 
@@ -147,7 +176,7 @@ Each is an *expected failure* on the legacy app and a requirement for the Rust o
 | D04 | `--idle-timeout abc`: argparse error is swallowed and **the window pops up**. | Exit 2, no side effect. |
 | D05 | Unknown flags, typos, abbreviations (`--tog`), stray words are ignored (and show the window). | Exit 2. |
 | D06 | A payload above 4096 bytes is truncated and still answered `OK`. | Refused (size limits, exit 2). |
-| D07 | Login cookies and cache created `0755/0644`, socket `0755`, state `0644`. | Everything `0700/0600`. |
+| D07 | Login cookies and cache created `0755/0644`, socket `0755`, state `0644`. | Nothing reachable by other users: the data, cache and config roots `0700`, socket, state, lock and provider list `0600`. (Files WebKit itself creates inside a root have WebKit's default mode, `0644`/`0755`; the `0700` root is what keeps them private, and `d07` checks reachability, not the mode of every file.) |
 | D08 | A corrupt `providers.json` is silently replaced by defaults + the new entry. | Kept as `providers.json.corrupt*`. |
 | D09 | When the WebKit web process dies the view stays blank forever. | Reloaded automatically. |
 | D10 | One idle connection blocks every other command for ~1 s (serial listener, `recv` timeout). | No head-of-line blocking (< 500 ms). |
@@ -175,11 +204,18 @@ can be reverted by editing one function.
 | V08 | New framed binary protocol on a **versioned socket name** (`.v1.sock`). | The legacy daemon answers `OK` to *anything*: bytes it cannot parse are read as stray command-line arguments, ignored, and the default action (show the window) runs. Binary frames sent to it would pop the window up and report success. Distinct names keep incompatible versions from ever talking. |
 | V09 | The client refuses an unsafe runtime dir / socket (symlink, wrong owner, group/other access). | See `security.md`. |
 | V10 | The daemon is started from the file named `llm-wrapperd` next to the client, never through `PATH`, and only if it and every parent are trustworthy. | Binary planting. |
+| V11 | **Camera/microphone (`enable_media_stream`) and encrypted media (DRM) are off** in the Rust daemon; the legacy app turned both on. | Voice mode is not used (your answer 5): with them off the page can never ask for the microphone. Say if you want voice back; it is one line in `ui.rs` plus a permission prompt policy (Phase 3). |
+| V12 | Data, cache and config move to the XDG directories (see section 3); the sessions of the legacy app are not migrated. | D07; a repository checkout is not a place for logins. |
+| V13 | An existing directory of ours with loose permissions is *tightened to `0700` and reported*; a symlink, a foreign owner, or an unreadable/unsafe provider list is *refused and set aside* (`providers.json.untrusted-<time>`), never followed. | Intransigent on planted links; forgiving on the user's own mistakes. |
+| V14 | A daemon started by a command that the daemon then refuses (for instance an unknown `--provider`) exits 1 instead of staying up unnoticed. | D01: a refused command must be visible. |
 
 Planned for later phases and **not implemented yet** (decided earlier, listed so nobody assumes
-otherwise): data under XDG with `0700/0600` (D07), the memory policy (only the active view stays
-warm; hidden-idle daemons release the web process — measured −75 % memory), the compat profile
-for User-Agent/stealth scripts, GTK4 + WebKitGTK 6.0.
+otherwise): the memory policy beyond the legacy-like trimming (only the active view stays warm;
+hidden-idle daemons release the web process — measured −75 % memory), the compat profile for
+User-Agent/stealth scripts (the default User-Agent is still the legacy Chrome string for every
+provider, so `p07b` is skipped for Rust), the navigation policy (external links to the default
+browser, popups for OAuth, uploads and downloads; today only `file:` is refused), the permission
+handler, packaging.
 
 ---
 
@@ -221,3 +257,9 @@ Honest list; each needs a manual check or a better harness:
 * Wayland: window class verified by hand (above); the suite itself runs on X11.
 * The `DBUS_SYSTEM_BUS_ADDRESS` power-saver workaround, GPU behaviour, voice mode (not used).
 * Behaviour on WebKitGTK versions other than 2.52.6.
+* Daemon: the idle timer (`--idle-timeout` expiring, which trims the hidden view — needs minutes and
+  has no external effect to observe), the enforcement of the memory-pressure thresholds, the
+  `file:` navigation block (WebKit already refuses `http`→`file`, so the daemon's own check cannot
+  be told apart from outside), the Web Inspector (F12), the peer-uid test when not run as root,
+  and loading a page once with `--provider X --new-chat` (`s12` passes, but WebKit coalesces a
+  repeated load, so the mutation "load twice" cannot be told apart either).
