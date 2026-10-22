@@ -1,0 +1,1645 @@
+{
+ "app_py": "app.py (lifted via ast)",
+ "cases": [
+  {
+   "args": [],
+   "effective": {
+    "add_provider": null,
+    "flags": [],
+    "idle_timeout": null,
+    "instance": null,
+    "provider": null,
+    "remove_provider": null,
+    "user_agent": null
+   },
+   "expect": "same",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": true
+  },
+  {
+   "args": [
+    "--toggle"
+   ],
+   "effective": {
+    "add_provider": null,
+    "flags": [
+     "toggle"
+    ],
+    "idle_timeout": null,
+    "instance": null,
+    "provider": null,
+    "remove_provider": null,
+    "user_agent": null
+   },
+   "expect": "same",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": true
+  },
+  {
+   "args": [
+    "--show"
+   ],
+   "effective": {
+    "add_provider": null,
+    "flags": [
+     "show"
+    ],
+    "idle_timeout": null,
+    "instance": null,
+    "provider": null,
+    "remove_provider": null,
+    "user_agent": null
+   },
+   "expect": "same",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": true
+  },
+  {
+   "args": [
+    "--hide"
+   ],
+   "effective": {
+    "add_provider": null,
+    "flags": [
+     "hide"
+    ],
+    "idle_timeout": null,
+    "instance": null,
+    "provider": null,
+    "remove_provider": null,
+    "user_agent": null
+   },
+   "expect": "same",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": true
+  },
+  {
+   "args": [
+    "--new-chat"
+   ],
+   "effective": {
+    "add_provider": null,
+    "flags": [
+     "new_chat"
+    ],
+    "idle_timeout": null,
+    "instance": null,
+    "provider": null,
+    "remove_provider": null,
+    "user_agent": null
+   },
+   "expect": "same",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": true
+  },
+  {
+   "args": [
+    "--soft-clean"
+   ],
+   "effective": {
+    "add_provider": null,
+    "flags": [
+     "soft_clean"
+    ],
+    "idle_timeout": null,
+    "instance": null,
+    "provider": null,
+    "remove_provider": null,
+    "user_agent": null
+   },
+   "expect": "same",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": true
+  },
+  {
+   "args": [
+    "--hard-clean"
+   ],
+   "effective": {
+    "add_provider": null,
+    "flags": [
+     "hard_clean"
+    ],
+    "idle_timeout": null,
+    "instance": null,
+    "provider": null,
+    "remove_provider": null,
+    "user_agent": null
+   },
+   "expect": "same",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": true
+  },
+  {
+   "args": [
+    "--background"
+   ],
+   "effective": {
+    "add_provider": null,
+    "flags": [
+     "background"
+    ],
+    "idle_timeout": null,
+    "instance": null,
+    "provider": null,
+    "remove_provider": null,
+    "user_agent": null
+   },
+   "expect": "same",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": true
+  },
+  {
+   "args": [
+    "--quit"
+   ],
+   "effective": {
+    "add_provider": null,
+    "flags": [
+     "quit"
+    ],
+    "idle_timeout": null,
+    "instance": null,
+    "provider": null,
+    "remove_provider": null,
+    "user_agent": null
+   },
+   "expect": "same",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": true
+  },
+  {
+   "args": [
+    "--toggle",
+    "--show"
+   ],
+   "effective": {
+    "add_provider": null,
+    "flags": [
+     "show",
+     "toggle"
+    ],
+    "idle_timeout": null,
+    "instance": null,
+    "provider": null,
+    "remove_provider": null,
+    "user_agent": null
+   },
+   "expect": "same",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": true
+  },
+  {
+   "args": [
+    "--show",
+    "--hide",
+    "--background"
+   ],
+   "effective": {
+    "add_provider": null,
+    "flags": [
+     "background",
+     "hide",
+     "show"
+    ],
+    "idle_timeout": null,
+    "instance": null,
+    "provider": null,
+    "remove_provider": null,
+    "user_agent": null
+   },
+   "expect": "same",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": true
+  },
+  {
+   "args": [
+    "--toggle",
+    "--toggle"
+   ],
+   "effective": {
+    "add_provider": null,
+    "flags": [
+     "toggle"
+    ],
+    "idle_timeout": null,
+    "instance": null,
+    "provider": null,
+    "remove_provider": null,
+    "user_agent": null
+   },
+   "expect": "same",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": true
+  },
+  {
+   "args": [
+    "--new-chat",
+    "--soft-clean",
+    "--hard-clean",
+    "--show"
+   ],
+   "effective": {
+    "add_provider": null,
+    "flags": [
+     "hard_clean",
+     "new_chat",
+     "show",
+     "soft_clean"
+    ],
+    "idle_timeout": null,
+    "instance": null,
+    "provider": null,
+    "remove_provider": null,
+    "user_agent": null
+   },
+   "expect": "same",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": true
+  },
+  {
+   "args": [
+    "--idle-timeout",
+    "5"
+   ],
+   "effective": {
+    "add_provider": null,
+    "flags": [],
+    "idle_timeout": 5,
+    "instance": null,
+    "provider": null,
+    "remove_provider": null,
+    "user_agent": null
+   },
+   "expect": "same",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": true
+  },
+  {
+   "args": [
+    "--idle-timeout=5"
+   ],
+   "effective": {
+    "add_provider": null,
+    "flags": [],
+    "idle_timeout": 5,
+    "instance": null,
+    "provider": null,
+    "remove_provider": null,
+    "user_agent": null
+   },
+   "expect": "same",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": true
+  },
+  {
+   "args": [
+    "--idle-timeout",
+    "0"
+   ],
+   "effective": {
+    "add_provider": null,
+    "flags": [],
+    "idle_timeout": 1,
+    "instance": null,
+    "provider": null,
+    "remove_provider": null,
+    "user_agent": null
+   },
+   "expect": "same",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": true
+  },
+  {
+   "args": [
+    "--idle-timeout",
+    "-5"
+   ],
+   "effective": {
+    "add_provider": null,
+    "flags": [],
+    "idle_timeout": 1,
+    "instance": null,
+    "provider": null,
+    "remove_provider": null,
+    "user_agent": null
+   },
+   "expect": "same",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": true
+  },
+  {
+   "args": [
+    "--idle-timeout",
+    "+7"
+   ],
+   "effective": {
+    "add_provider": null,
+    "flags": [],
+    "idle_timeout": 7,
+    "instance": null,
+    "provider": null,
+    "remove_provider": null,
+    "user_agent": null
+   },
+   "expect": "same",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": true
+  },
+  {
+   "args": [
+    "--idle-timeout",
+    "525600"
+   ],
+   "effective": {
+    "add_provider": null,
+    "flags": [],
+    "idle_timeout": 525600,
+    "instance": null,
+    "provider": null,
+    "remove_provider": null,
+    "user_agent": null
+   },
+   "expect": "same",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": true
+  },
+  {
+   "args": [
+    "--idle-timeout",
+    "abc"
+   ],
+   "expect": "rejected",
+   "legacy": "rejected"
+  },
+  {
+   "args": [
+    "--idle-timeout"
+   ],
+   "expect": "rejected",
+   "legacy": "rejected"
+  },
+  {
+   "args": [
+    "--idle-timeout",
+    "5.5"
+   ],
+   "expect": "rejected",
+   "legacy": "rejected"
+  },
+  {
+   "args": [
+    "--idle-timeout="
+   ],
+   "expect": "rejected",
+   "legacy": "rejected"
+  },
+  {
+   "args": [
+    "--idle-timeout",
+    "--show"
+   ],
+   "expect": "rejected",
+   "legacy": "rejected"
+  },
+  {
+   "args": [
+    "--idle-timeout",
+    " 5 "
+   ],
+   "effective": {
+    "add_provider": null,
+    "flags": [],
+    "idle_timeout": 5,
+    "instance": null,
+    "provider": null,
+    "remove_provider": null,
+    "user_agent": null
+   },
+   "expect": "deviation:strict_int",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": true
+  },
+  {
+   "args": [
+    "--idle-timeout",
+    "1_0"
+   ],
+   "effective": {
+    "add_provider": null,
+    "flags": [],
+    "idle_timeout": 10,
+    "instance": null,
+    "provider": null,
+    "remove_provider": null,
+    "user_agent": null
+   },
+   "expect": "deviation:strict_int",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": true
+  },
+  {
+   "args": [
+    "--idle-timeout",
+    "\u0665"
+   ],
+   "effective": {
+    "add_provider": null,
+    "flags": [],
+    "idle_timeout": 5,
+    "instance": null,
+    "provider": null,
+    "remove_provider": null,
+    "user_agent": null
+   },
+   "expect": "deviation:strict_int",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": true
+  },
+  {
+   "args": [
+    "--idle-timeout",
+    "525601"
+   ],
+   "effective": {
+    "add_provider": null,
+    "flags": [],
+    "idle_timeout": 525601,
+    "instance": null,
+    "provider": null,
+    "remove_provider": null,
+    "user_agent": null
+   },
+   "expect": "deviation:range",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": true
+  },
+  {
+   "args": [
+    "--idle-timeout",
+    "99999999999"
+   ],
+   "effective": {
+    "add_provider": null,
+    "flags": [],
+    "idle_timeout": 99999999999,
+    "instance": null,
+    "provider": null,
+    "remove_provider": null,
+    "user_agent": null
+   },
+   "expect": "deviation:range",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": true
+  },
+  {
+   "args": [
+    "--user-agent",
+    "Mozilla/5.0 (X11; Linux x86_64) Test/1.0"
+   ],
+   "effective": {
+    "add_provider": null,
+    "flags": [],
+    "idle_timeout": null,
+    "instance": null,
+    "provider": null,
+    "remove_provider": null,
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) Test/1.0"
+   },
+   "expect": "same",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": true
+  },
+  {
+   "args": [
+    "--user-agent=Foo/1.0"
+   ],
+   "effective": {
+    "add_provider": null,
+    "flags": [],
+    "idle_timeout": null,
+    "instance": null,
+    "provider": null,
+    "remove_provider": null,
+    "user_agent": "Foo/1.0"
+   },
+   "expect": "same",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": true
+  },
+  {
+   "args": [
+    "--user-agent=Foo=Bar"
+   ],
+   "effective": {
+    "add_provider": null,
+    "flags": [],
+    "idle_timeout": null,
+    "instance": null,
+    "provider": null,
+    "remove_provider": null,
+    "user_agent": "Foo=Bar"
+   },
+   "expect": "same",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": true
+  },
+  {
+   "args": [
+    "--user-agent",
+    "-foo bar"
+   ],
+   "effective": {
+    "add_provider": null,
+    "flags": [],
+    "idle_timeout": null,
+    "instance": null,
+    "provider": null,
+    "remove_provider": null,
+    "user_agent": "-foo bar"
+   },
+   "expect": "same",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": true
+  },
+  {
+   "args": [
+    "--user-agent"
+   ],
+   "expect": "rejected",
+   "legacy": "rejected"
+  },
+  {
+   "args": [
+    "--user-agent",
+    "-foo"
+   ],
+   "expect": "rejected",
+   "legacy": "rejected"
+  },
+  {
+   "args": [
+    "--user-agent",
+    ""
+   ],
+   "effective": {
+    "add_provider": null,
+    "flags": [],
+    "idle_timeout": null,
+    "instance": null,
+    "provider": null,
+    "remove_provider": null,
+    "user_agent": null
+   },
+   "expect": "deviation:invalid_value",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": true
+  },
+  {
+   "args": [
+    "--user-agent",
+    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+   ],
+   "effective": {
+    "add_provider": null,
+    "flags": [],
+    "idle_timeout": null,
+    "instance": null,
+    "provider": null,
+    "remove_provider": null,
+    "user_agent": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+   },
+   "expect": "same",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": true
+  },
+  {
+   "args": [
+    "--user-agent",
+    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+   ],
+   "effective": {
+    "add_provider": null,
+    "flags": [],
+    "idle_timeout": null,
+    "instance": null,
+    "provider": null,
+    "remove_provider": null,
+    "user_agent": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+   },
+   "expect": "deviation:invalid_value",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": true
+  },
+  {
+   "args": [
+    "--user-agent",
+    "tab\there"
+   ],
+   "effective": {
+    "add_provider": null,
+    "flags": [],
+    "idle_timeout": null,
+    "instance": null,
+    "provider": null,
+    "remove_provider": null,
+    "user_agent": "tab\there"
+   },
+   "expect": "deviation:invalid_value",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": true
+  },
+  {
+   "args": [
+    "--user-agent",
+    "na\u00efve"
+   ],
+   "effective": {
+    "add_provider": null,
+    "flags": [],
+    "idle_timeout": null,
+    "instance": null,
+    "provider": null,
+    "remove_provider": null,
+    "user_agent": "na\u00efve"
+   },
+   "expect": "deviation:invalid_value",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": true
+  },
+  {
+   "args": [
+    "--user-agent",
+    "line1\r\nX-Injected: 1"
+   ],
+   "effective": {
+    "add_provider": null,
+    "flags": [],
+    "idle_timeout": null,
+    "instance": null,
+    "provider": null,
+    "remove_provider": null,
+    "user_agent": "line1\r\nX-Injected: 1"
+   },
+   "expect": "deviation:invalid_value",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": true
+  },
+  {
+   "args": [
+    "--provider",
+    "gemini"
+   ],
+   "effective": {
+    "add_provider": null,
+    "flags": [],
+    "idle_timeout": null,
+    "instance": null,
+    "provider": "gemini",
+    "remove_provider": null,
+    "user_agent": null
+   },
+   "expect": "same",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": true
+  },
+  {
+   "args": [
+    "--provider=claude"
+   ],
+   "effective": {
+    "add_provider": null,
+    "flags": [],
+    "idle_timeout": null,
+    "instance": null,
+    "provider": "claude",
+    "remove_provider": null,
+    "user_agent": null
+   },
+   "expect": "same",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": true
+  },
+  {
+   "args": [
+    "--provider",
+    "https://chat.mistral.ai"
+   ],
+   "effective": {
+    "add_provider": null,
+    "flags": [],
+    "idle_timeout": null,
+    "instance": null,
+    "provider": "https://chat.mistral.ai",
+    "remove_provider": null,
+    "user_agent": null
+   },
+   "expect": "same",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": true
+  },
+  {
+   "args": [
+    "--provider",
+    "http://localhost:3000"
+   ],
+   "effective": {
+    "add_provider": null,
+    "flags": [],
+    "idle_timeout": null,
+    "instance": null,
+    "provider": "http://localhost:3000",
+    "remove_provider": null,
+    "user_agent": null
+   },
+   "expect": "same",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": true
+  },
+  {
+   "args": [
+    "--provider",
+    "http://127.0.0.1:8080/"
+   ],
+   "effective": {
+    "add_provider": null,
+    "flags": [],
+    "idle_timeout": null,
+    "instance": null,
+    "provider": "http://127.0.0.1:8080/",
+    "remove_provider": null,
+    "user_agent": null
+   },
+   "expect": "same",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": true
+  },
+  {
+   "args": [
+    "--provider",
+    "http://[::1]:8080/"
+   ],
+   "effective": {
+    "add_provider": null,
+    "flags": [],
+    "idle_timeout": null,
+    "instance": null,
+    "provider": "http://[::1]:8080/",
+    "remove_provider": null,
+    "user_agent": null
+   },
+   "expect": "same",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": true
+  },
+  {
+   "args": [
+    "--provider=https://x.example/?a=b"
+   ],
+   "effective": {
+    "add_provider": null,
+    "flags": [],
+    "idle_timeout": null,
+    "instance": null,
+    "provider": "https://x.example/?a=b",
+    "remove_provider": null,
+    "user_agent": null
+   },
+   "expect": "same",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": true
+  },
+  {
+   "args": [
+    "--provider",
+    "-5"
+   ],
+   "effective": {
+    "add_provider": null,
+    "flags": [],
+    "idle_timeout": null,
+    "instance": null,
+    "provider": "-5",
+    "remove_provider": null,
+    "user_agent": null
+   },
+   "expect": "same",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": true
+  },
+  {
+   "args": [
+    "--provider",
+    "a",
+    "--provider",
+    "b"
+   ],
+   "effective": {
+    "add_provider": null,
+    "flags": [],
+    "idle_timeout": null,
+    "instance": null,
+    "provider": "b",
+    "remove_provider": null,
+    "user_agent": null
+   },
+   "expect": "same",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": true
+  },
+  {
+   "args": [
+    "--provider"
+   ],
+   "expect": "rejected",
+   "legacy": "rejected"
+  },
+  {
+   "args": [
+    "--provider",
+    "-x"
+   ],
+   "expect": "rejected",
+   "legacy": "rejected"
+  },
+  {
+   "args": [
+    "--provider",
+    "http://example.com"
+   ],
+   "effective": {
+    "add_provider": null,
+    "flags": [],
+    "idle_timeout": null,
+    "instance": null,
+    "provider": "http://example.com",
+    "remove_provider": null,
+    "user_agent": null
+   },
+   "expect": "deviation:url_policy",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": true
+  },
+  {
+   "args": [
+    "--provider",
+    "https://user:pw@example.com"
+   ],
+   "effective": {
+    "add_provider": null,
+    "flags": [],
+    "idle_timeout": null,
+    "instance": null,
+    "provider": "https://user:pw@example.com",
+    "remove_provider": null,
+    "user_agent": null
+   },
+   "expect": "deviation:url_policy",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": true
+  },
+  {
+   "args": [
+    "--provider",
+    "https://2130706433/"
+   ],
+   "effective": {
+    "add_provider": null,
+    "flags": [],
+    "idle_timeout": null,
+    "instance": null,
+    "provider": "https://2130706433/",
+    "remove_provider": null,
+    "user_agent": null
+   },
+   "expect": "deviation:url_policy",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": true
+  },
+  {
+   "args": [
+    "--provider",
+    "not a url"
+   ],
+   "effective": {
+    "add_provider": null,
+    "flags": [],
+    "idle_timeout": null,
+    "instance": null,
+    "provider": "not a url",
+    "remove_provider": null,
+    "user_agent": null
+   },
+   "expect": "deviation:invalid_value",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": false
+  },
+  {
+   "args": [
+    "--provider",
+    "ftp://x.example"
+   ],
+   "effective": {
+    "add_provider": null,
+    "flags": [],
+    "idle_timeout": null,
+    "instance": null,
+    "provider": "ftp://x.example",
+    "remove_provider": null,
+    "user_agent": null
+   },
+   "expect": "deviation:invalid_value",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": false
+  },
+  {
+   "args": [
+    "--provider",
+    "javascript:alert(1)"
+   ],
+   "effective": {
+    "add_provider": null,
+    "flags": [],
+    "idle_timeout": null,
+    "instance": null,
+    "provider": "javascript:alert(1)",
+    "remove_provider": null,
+    "user_agent": null
+   },
+   "expect": "deviation:invalid_value",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": false
+  },
+  {
+   "args": [
+    "--provider",
+    "file:///etc/passwd"
+   ],
+   "effective": {
+    "add_provider": null,
+    "flags": [],
+    "idle_timeout": null,
+    "instance": null,
+    "provider": "file:///etc/passwd",
+    "remove_provider": null,
+    "user_agent": null
+   },
+   "expect": "deviation:invalid_value",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": false
+  },
+  {
+   "args": [
+    "--add-provider",
+    "mistral",
+    "https://chat.mistral.ai"
+   ],
+   "effective": {
+    "add_provider": [
+     "mistral",
+     "https://chat.mistral.ai"
+    ],
+    "flags": [],
+    "idle_timeout": null,
+    "instance": null,
+    "provider": null,
+    "remove_provider": null,
+    "user_agent": null
+   },
+   "expect": "same",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": true
+  },
+  {
+   "args": [
+    "--add-provider",
+    "nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+    "https://x.example"
+   ],
+   "effective": {
+    "add_provider": [
+     "nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+     "https://x.example"
+    ],
+    "flags": [],
+    "idle_timeout": null,
+    "instance": null,
+    "provider": null,
+    "remove_provider": null,
+    "user_agent": null
+   },
+   "expect": "same",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": true
+  },
+  {
+   "args": [
+    "--add-provider",
+    "a"
+   ],
+   "expect": "rejected",
+   "legacy": "rejected"
+  },
+  {
+   "args": [
+    "--add-provider"
+   ],
+   "expect": "rejected",
+   "legacy": "rejected"
+  },
+  {
+   "args": [
+    "--add-provider=a",
+    "https://x.example"
+   ],
+   "expect": "rejected",
+   "legacy": "rejected"
+  },
+  {
+   "args": [
+    "--add-provider",
+    "a",
+    "b",
+    "c"
+   ],
+   "effective": {
+    "add_provider": [
+     "a",
+     "b"
+    ],
+    "flags": [],
+    "idle_timeout": null,
+    "instance": null,
+    "provider": null,
+    "remove_provider": null,
+    "user_agent": null
+   },
+   "expect": "deviation:positional",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": false
+  },
+  {
+   "args": [
+    "--add-provider",
+    "bad name",
+    "https://x.example"
+   ],
+   "effective": {
+    "add_provider": [
+     "bad name",
+     "https://x.example"
+    ],
+    "flags": [],
+    "idle_timeout": null,
+    "instance": null,
+    "provider": null,
+    "remove_provider": null,
+    "user_agent": null
+   },
+   "expect": "deviation:invalid_value",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": false
+  },
+  {
+   "args": [
+    "--add-provider",
+    "nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+    "https://x.example"
+   ],
+   "effective": {
+    "add_provider": [
+     "nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+     "https://x.example"
+    ],
+    "flags": [],
+    "idle_timeout": null,
+    "instance": null,
+    "provider": null,
+    "remove_provider": null,
+    "user_agent": null
+   },
+   "expect": "deviation:invalid_value",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": false
+  },
+  {
+   "args": [
+    "--add-provider",
+    "ok",
+    "javascript:alert(1)"
+   ],
+   "effective": {
+    "add_provider": [
+     "ok",
+     "javascript:alert(1)"
+    ],
+    "flags": [],
+    "idle_timeout": null,
+    "instance": null,
+    "provider": null,
+    "remove_provider": null,
+    "user_agent": null
+   },
+   "expect": "deviation:invalid_value",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": false
+  },
+  {
+   "args": [
+    "--add-provider",
+    "ok",
+    "http://example.com"
+   ],
+   "effective": {
+    "add_provider": [
+     "ok",
+     "http://example.com"
+    ],
+    "flags": [],
+    "idle_timeout": null,
+    "instance": null,
+    "provider": null,
+    "remove_provider": null,
+    "user_agent": null
+   },
+   "expect": "deviation:url_policy",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": true
+  },
+  {
+   "args": [
+    "--add-provider",
+    "ok",
+    "https://user:pw@example.com"
+   ],
+   "effective": {
+    "add_provider": [
+     "ok",
+     "https://user:pw@example.com"
+    ],
+    "flags": [],
+    "idle_timeout": null,
+    "instance": null,
+    "provider": null,
+    "remove_provider": null,
+    "user_agent": null
+   },
+   "expect": "deviation:url_policy",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": true
+  },
+  {
+   "args": [
+    "--remove-provider",
+    "chatgpt"
+   ],
+   "effective": {
+    "add_provider": null,
+    "flags": [],
+    "idle_timeout": null,
+    "instance": null,
+    "provider": null,
+    "remove_provider": "chatgpt",
+    "user_agent": null
+   },
+   "expect": "same",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": true
+  },
+  {
+   "args": [
+    "--remove-provider"
+   ],
+   "expect": "rejected",
+   "legacy": "rejected"
+  },
+  {
+   "args": [
+    "--remove-provider",
+    "bad name"
+   ],
+   "effective": {
+    "add_provider": null,
+    "flags": [],
+    "idle_timeout": null,
+    "instance": null,
+    "provider": null,
+    "remove_provider": "bad name",
+    "user_agent": null
+   },
+   "expect": "deviation:invalid_value",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": true
+  },
+  {
+   "args": [
+    "--instance",
+    "gemini"
+   ],
+   "effective": {
+    "add_provider": null,
+    "flags": [],
+    "idle_timeout": null,
+    "instance": "gemini",
+    "provider": null,
+    "remove_provider": null,
+    "user_agent": null
+   },
+   "expect": "same",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": true
+  },
+  {
+   "args": [
+    "--instance=gemini"
+   ],
+   "effective": {
+    "add_provider": null,
+    "flags": [],
+    "idle_timeout": null,
+    "instance": "gemini",
+    "provider": null,
+    "remove_provider": null,
+    "user_agent": null
+   },
+   "expect": "same",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": true
+  },
+  {
+   "args": [
+    "--instance",
+    "gemini",
+    "--provider",
+    "gemini",
+    "--background"
+   ],
+   "effective": {
+    "add_provider": null,
+    "flags": [
+     "background"
+    ],
+    "idle_timeout": null,
+    "instance": "gemini",
+    "provider": "gemini",
+    "remove_provider": null,
+    "user_agent": null
+   },
+   "expect": "same",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": true
+  },
+  {
+   "args": [
+    "--instance"
+   ],
+   "expect": "rejected",
+   "legacy": "rejected"
+  },
+  {
+   "args": [
+    "--instance",
+    ""
+   ],
+   "expect": "rejected",
+   "legacy": "rejected"
+  },
+  {
+   "args": [
+    "--instance",
+    "bad name!"
+   ],
+   "expect": "rejected",
+   "legacy": "rejected"
+  },
+  {
+   "args": [
+    "--instance",
+    "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+   ],
+   "expect": "rejected",
+   "legacy": "rejected"
+  },
+  {
+   "args": [
+    "--toogle"
+   ],
+   "effective": {
+    "add_provider": null,
+    "flags": [],
+    "idle_timeout": null,
+    "instance": null,
+    "provider": null,
+    "remove_provider": null,
+    "user_agent": null
+   },
+   "expect": "deviation:unknown_option",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": true
+  },
+  {
+   "args": [
+    "--TOGGLE"
+   ],
+   "effective": {
+    "add_provider": null,
+    "flags": [],
+    "idle_timeout": null,
+    "instance": null,
+    "provider": null,
+    "remove_provider": null,
+    "user_agent": null
+   },
+   "expect": "deviation:unknown_option",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": true
+  },
+  {
+   "args": [
+    " --toggle"
+   ],
+   "effective": {
+    "add_provider": null,
+    "flags": [],
+    "idle_timeout": null,
+    "instance": null,
+    "provider": null,
+    "remove_provider": null,
+    "user_agent": null
+   },
+   "expect": "deviation:positional",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": true
+  },
+  {
+   "args": [
+    "-t"
+   ],
+   "effective": {
+    "add_provider": null,
+    "flags": [],
+    "idle_timeout": null,
+    "instance": null,
+    "provider": null,
+    "remove_provider": null,
+    "user_agent": null
+   },
+   "expect": "deviation:unknown_option",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": true
+  },
+  {
+   "args": [
+    "--tog"
+   ],
+   "effective": {
+    "add_provider": null,
+    "flags": [
+     "toggle"
+    ],
+    "idle_timeout": null,
+    "instance": null,
+    "provider": null,
+    "remove_provider": null,
+    "user_agent": null
+   },
+   "expect": "deviation:abbreviation",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": true
+  },
+  {
+   "args": [
+    "--prov",
+    "gemini"
+   ],
+   "effective": {
+    "add_provider": null,
+    "flags": [],
+    "idle_timeout": null,
+    "instance": null,
+    "provider": "gemini",
+    "remove_provider": null,
+    "user_agent": null
+   },
+   "expect": "deviation:abbreviation",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": true
+  },
+  {
+   "args": [
+    "--h"
+   ],
+   "expect": "rejected",
+   "legacy": "rejected"
+  },
+  {
+   "args": [
+    "foo"
+   ],
+   "effective": {
+    "add_provider": null,
+    "flags": [],
+    "idle_timeout": null,
+    "instance": null,
+    "provider": null,
+    "remove_provider": null,
+    "user_agent": null
+   },
+   "expect": "deviation:positional",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": true
+  },
+  {
+   "args": [
+    "https://chatgpt.com"
+   ],
+   "effective": {
+    "add_provider": null,
+    "flags": [],
+    "idle_timeout": null,
+    "instance": null,
+    "provider": null,
+    "remove_provider": null,
+    "user_agent": null
+   },
+   "expect": "deviation:positional",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": true
+  },
+  {
+   "args": [
+    ""
+   ],
+   "effective": {
+    "add_provider": null,
+    "flags": [],
+    "idle_timeout": null,
+    "instance": null,
+    "provider": null,
+    "remove_provider": null,
+    "user_agent": null
+   },
+   "expect": "deviation:positional",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": true
+  },
+  {
+   "args": [
+    "--"
+   ],
+   "effective": {
+    "add_provider": null,
+    "flags": [],
+    "idle_timeout": null,
+    "instance": null,
+    "provider": null,
+    "remove_provider": null,
+    "user_agent": null
+   },
+   "expect": "deviation:unknown_option",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": true
+  },
+  {
+   "args": [
+    "--toggle",
+    "extra"
+   ],
+   "effective": {
+    "add_provider": null,
+    "flags": [
+     "toggle"
+    ],
+    "idle_timeout": null,
+    "instance": null,
+    "provider": null,
+    "remove_provider": null,
+    "user_agent": null
+   },
+   "expect": "deviation:positional",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": true
+  },
+  {
+   "args": [
+    "--help"
+   ],
+   "effective": {
+    "add_provider": null,
+    "flags": [],
+    "idle_timeout": null,
+    "instance": null,
+    "provider": null,
+    "remove_provider": null,
+    "user_agent": null
+   },
+   "expect": "help",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": true
+  },
+  {
+   "args": [
+    "-h"
+   ],
+   "effective": {
+    "add_provider": null,
+    "flags": [],
+    "idle_timeout": null,
+    "instance": null,
+    "provider": null,
+    "remove_provider": null,
+    "user_agent": null
+   },
+   "expect": "help",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": true
+  },
+  {
+   "args": [
+    "--version"
+   ],
+   "effective": {
+    "add_provider": null,
+    "flags": [],
+    "idle_timeout": null,
+    "instance": null,
+    "provider": null,
+    "remove_provider": null,
+    "user_agent": null
+   },
+   "expect": "version",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": true
+  },
+  {
+   "args": [
+    "-V"
+   ],
+   "effective": {
+    "add_provider": null,
+    "flags": [],
+    "idle_timeout": null,
+    "instance": null,
+    "provider": null,
+    "remove_provider": null,
+    "user_agent": null
+   },
+   "expect": "version",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": true
+  },
+  {
+   "args": [
+    "--provider",
+    "gemini",
+    "--add-provider",
+    "x",
+    "https://x.example",
+    "--toggle"
+   ],
+   "effective": {
+    "add_provider": [
+     "x",
+     "https://x.example"
+    ],
+    "flags": [
+     "toggle"
+    ],
+    "idle_timeout": null,
+    "instance": null,
+    "provider": "gemini",
+    "remove_provider": null,
+    "user_agent": null
+   },
+   "expect": "same",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": true
+  },
+  {
+   "args": [
+    "--instance",
+    "work",
+    "--user-agent",
+    "UA/1",
+    "--idle-timeout",
+    "30",
+    "--show"
+   ],
+   "effective": {
+    "add_provider": null,
+    "flags": [
+     "show"
+    ],
+    "idle_timeout": 30,
+    "instance": "work",
+    "provider": null,
+    "remove_provider": null,
+    "user_agent": "UA/1"
+   },
+   "expect": "same",
+   "legacy": "parsed",
+   "legacy_daemon_accepts_values": true
+  }
+ ],
+ "python": "3.12.3"
+}

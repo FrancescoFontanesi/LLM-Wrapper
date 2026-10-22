@@ -12,3 +12,6 @@ session/
 tmp/
 instances/
 providers.json
+
+# Rust build output
+rust/target/

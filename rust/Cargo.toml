@@ -1,0 +1,33 @@
+[workspace]
+resolver = "2"
+members = ["crates/protocol", "crates/ctl"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+repository = "https://github.com/FrancescoFontanesi/LLM-Wrapper"
+publish = false
+
+# Security baseline shared by every crate that ships in a release:
+#  * no `unsafe` anywhere (forbid cannot be overridden by an inner `allow`)
+#  * clippy::all and ::pedantic are errors
+[workspace.lints.rust]
+unsafe_code = "forbid"
+unused_must_use = "deny"
+
+[workspace.lints.clippy]
+all = { level = "deny", priority = -1 }
+pedantic = { level = "deny", priority = -1 }
+module_name_repetitions = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+must_use_candidate = "allow"
+
+# Release binaries are tiny and abort on panic: a panicking client must never
+# unwind through half-written protocol state.
+[profile.release]
+opt-level = "s"
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = "symbols"
