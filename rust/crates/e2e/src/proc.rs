@@ -1,0 +1,202 @@
+//! Looking at processes through `/proc`, and X11 helpers (`xdotool`, `xprop`) for window class and keys.
+
+use std::fs;
+use std::process::Command;
+use std::sync::Mutex;
+
+/// All pids whose environment has `XDG_RUNTIME_DIR=<runtime>`: the daemon, its WebKit helpers and
+/// anything else started inside one sandbox.
+pub fn pids_in(runtime: &str) -> Vec<u32> {
+    let needle = format!("XDG_RUNTIME_DIR={runtime}\0");
+    let me = std::process::id();
+    let mut out = Vec::new();
+    let Ok(dir) = fs::read_dir("/proc") else {
+        return out;
+    };
+    for entry in dir.flatten() {
+        let Some(pid) = entry
+            .file_name()
+            .to_str()
+            .and_then(|s| s.parse::<u32>().ok())
+        else {
+            continue;
+        };
+        if pid == me {
+            continue;
+        }
+        let Ok(env) = fs::read(format!("/proc/{pid}/environ")) else {
+            continue;
+        };
+        if String::from_utf8_lossy(&env).contains(&needle) {
+            out.push(pid);
+        }
+    }
+    out
+}
+
+pub fn cmdline(pid: u32) -> String {
+    fs::read(format!("/proc/{pid}/cmdline"))
+        .map(|b| {
+            String::from_utf8_lossy(&b)
+                .replace('\0', " ")
+                .trim()
+                .to_owned()
+        })
+        .unwrap_or_default()
+}
+
+pub fn parent(pid: u32) -> Option<u32> {
+    let stat = fs::read_to_string(format!("/proc/{pid}/stat")).ok()?;
+    stat.rsplit_once(')')?
+        .1
+        .split_whitespace()
+        .nth(1)?
+        .parse()
+        .ok()
+}
+
+pub fn alive(pid: u32) -> bool {
+    // a zombie is not alive for our purposes
+    fs::read_to_string(format!("/proc/{pid}/stat"))
+        .ok()
+        .and_then(|s| {
+            s.rsplit_once(')')
+                .map(|(_, r)| r.trim_start().starts_with(|c| c != 'Z' && c != 'X'))
+        })
+        .unwrap_or(false)
+}
+
+/// Every descendant of `root` (children, grandchildren, ...), found by walking `/proc`.
+pub fn descendants(root: u32) -> Vec<u32> {
+    let mut all = Vec::new();
+    if let Ok(dir) = fs::read_dir("/proc") {
+        for e in dir.flatten() {
+            if let Some(pid) = e.file_name().to_str().and_then(|s| s.parse::<u32>().ok()) {
+                if let Some(pp) = parent(pid) {
+                    all.push((pid, pp));
+                }
+            }
+        }
+    }
+    let mut found = vec![];
+    let mut frontier = vec![root];
+    while let Some(p) = frontier.pop() {
+        for (pid, pp) in &all {
+            if *pp == p && !found.contains(pid) {
+                found.push(*pid);
+                frontier.push(*pid);
+            }
+        }
+    }
+    found
+}
+
+pub fn kill9(pid: u32) {
+    let _ = Command::new("kill").args(["-9", &pid.to_string()]).output();
+}
+
+/// Resident set the kernel attributes to this process alone (proportional share of shared pages).
+pub fn pss_kib(pid: u32) -> u64 {
+    fs::read_to_string(format!("/proc/{pid}/smaps_rollup"))
+        .ok()
+        .and_then(|s| {
+            s.lines()
+                .find(|l| l.starts_with("Pss:"))
+                .and_then(|l| l.split_whitespace().nth(1)?.parse().ok())
+        })
+        .unwrap_or(0)
+}
+
+/// Clock ticks (user+system) the process has used so far.
+pub fn cpu_ticks(pid: u32) -> u64 {
+    fs::read_to_string(format!("/proc/{pid}/stat"))
+        .ok()
+        .and_then(|s| {
+            let f: Vec<&str> = s.rsplit_once(')')?.1.split_whitespace().collect();
+            Some(f.get(11)?.parse::<u64>().ok()? + f.get(12)?.parse::<u64>().ok()?)
+        })
+        .unwrap_or(0)
+}
+
+// ---- X11 ---------------------------------------------------------------------------------------
+
+/// Keyboard input goes to whatever has the X focus, which is global: tests that type must not
+/// overlap. They hold this lock.
+pub static INPUT_LOCK: Mutex<()> = Mutex::new(());
+
+pub fn have_x11_tools() -> bool {
+    std::env::var_os("DISPLAY").is_some()
+        && ["xdotool", "xprop"].iter().all(|t| {
+            Command::new(t).arg("--version").output().is_ok()
+                || Command::new(t).arg("-version").output().is_ok()
+        })
+}
+
+fn run(cmd: &str, args: &[&str]) -> String {
+    Command::new(cmd)
+        .args(args)
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).into_owned())
+        .unwrap_or_default()
+}
+
+/// X window ids owned by `pid`.
+pub fn windows_of(pid: u32) -> Vec<String> {
+    run("xdotool", &["search", "--pid", &pid.to_string()])
+        .lines()
+        .map(str::to_owned)
+        .collect()
+}
+
+/// `WM_CLASS` of the first window of `pid` that has a class: (instance, class).
+pub fn wm_class(pid: u32) -> Option<(String, String)> {
+    for id in windows_of(pid) {
+        let out = run("xprop", &["-id", &id, "WM_CLASS"]);
+        if let Some((_, rhs)) = out.split_once('=') {
+            let parts: Vec<String> = rhs
+                .split(',')
+                .map(|p| p.trim().trim_matches('"').to_owned())
+                .collect();
+            // GTK also creates an invisible group-leader window whose class is empty: skip it
+            if parts.len() == 2 && !parts[0].is_empty() && !parts[1].is_empty() {
+                return Some((parts[0].clone(), parts[1].clone()));
+            }
+        }
+    }
+    None
+}
+
+/// Focus the window of `pid`, put the pointer over it, and press `keys` (xdotool syntax).
+pub fn press(pid: u32, keys: &str) -> bool {
+    let Some(id) = windows_of(pid)
+        .into_iter()
+        .find(|w| run("xdotool", &["getwindowgeometry", w]).contains("Geometry"))
+    else {
+        return false;
+    };
+    run("xdotool", &["windowfocus", &id]);
+    run("xdotool", &["mousemove", "--window", &id, "120", "120"]);
+    run("xdotool", &["key", "--clearmodifiers", keys]);
+    true
+}
+
+/// Click at (x, y) inside the window of `pid`.
+pub fn click(pid: u32, x: u32, y: u32) -> bool {
+    let Some(id) = windows_of(pid).into_iter().next() else {
+        return false;
+    };
+    run("xdotool", &["windowfocus", &id]);
+    run(
+        "xdotool",
+        &[
+            "mousemove",
+            "--window",
+            &id,
+            &x.to_string(),
+            &y.to_string(),
+            "click",
+            "1",
+        ],
+    );
+    true
+}

@@ -1,0 +1,51 @@
+{
+  "cold_start_ms": {
+    "max": 279.0,
+    "min": 252.2,
+    "n": 5,
+    "p50": 278.1,
+    "p90": 279.0,
+    "p99": 279.0
+  },
+  "conditions": {
+    "cores": 4,
+    "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+    "display": "Xvfb (software rendering), fake chat page on loopback",
+    "kernel": "6.18.44-fc-v140",
+    "webkit": "2.52.6-0ubuntu0.24.04.1"
+  },
+  "cpu_percent_while_hidden_10s": 0.2,
+  "hotkey_ms": {
+    "command_to_state_visible_flip": {
+      "max": 14.6,
+      "min": 7.4,
+      "n": 40,
+      "p50": 10.0,
+      "p90": 11.8,
+      "p99": 14.6
+    },
+    "launcher_wall": {
+      "max": 13.0,
+      "min": 6.6,
+      "n": 40,
+      "p50": 10.0,
+      "p90": 10.3,
+      "p99": 13.0
+    }
+  },
+  "implementation": "legacy (python, GTK3, WebKitGTK 4.1)",
+  "memory_pss_mib": {
+    "hidden": {
+      "network": 27,
+      "total_mib": 182,
+      "ui": 75,
+      "web": 78
+    },
+    "visible": {
+      "network": 27,
+      "total_mib": 192,
+      "ui": 86,
+      "web": 78
+    }
+  }
+}

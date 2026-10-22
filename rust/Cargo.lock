@@ -146,6 +146,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "llm-wrapper-e2e"
+version = "0.1.0"
+dependencies = [
+ "llm-wrapper-protocol",
+ "serde_json",
+]
+
+[[package]]
 name = "llm-wrapper-protocol"
 version = "0.1.0"
 dependencies = [
