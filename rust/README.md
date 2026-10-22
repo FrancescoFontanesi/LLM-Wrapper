@@ -39,5 +39,5 @@ scripts/e2e.sh --bench out.json
 
 ## Licence
 
-The repository has no `LICENSE` file yet and the crates are marked `publish = false`. Choosing a
-licence is a decision for the owner; nothing here assumes one.
+MIT, free to use, copy, modify and distribute: see `../LICENSE`. The crates stay marked
+`publish = false`; publishing them is a separate decision.

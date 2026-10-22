@@ -6,6 +6,7 @@ members = ["crates/protocol", "crates/ctl", "crates/e2e"]
 version = "0.1.0"
 edition = "2021"
 repository = "https://github.com/FrancescoFontanesi/LLM-Wrapper"
+license = "MIT"
 publish = false
 
 # Security baseline shared by every crate that ships in a release:

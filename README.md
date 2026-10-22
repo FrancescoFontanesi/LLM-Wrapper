@@ -196,3 +196,9 @@ instances/            # data of standalone instances
 ```
 
 Feel free to tailor it further: the launcher is a tiny bash script and the whole app lives in `app.py`.
+
+---
+
+## License
+
+MIT. Free to use, copy, modify and distribute; see [`LICENSE`](LICENSE).

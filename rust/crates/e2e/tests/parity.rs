@@ -1,5 +1,5 @@
 //! Behaviour that must be identical in the legacy app and the Rust implementation ("P" tests).
-//! Legacy quirks that are kept on purpose are marked `quirk` and are listed in `docs/spec.md`.
+//! Legacy behaviours that are kept on purpose are marked `quirk` and listed in `docs/spec.md`.
 
 use std::os::unix::net::UnixStream;
 use std::thread;
@@ -101,13 +101,12 @@ fn p02_visibility_commands_and_their_precedence() {
     expect_ok(&sb, &["--toggle"]);
     wait_visible(&sb, None, false);
 
-    // quirk: a command with no visibility flag shows the window (even --soft-clean and --hard-clean)
-    for flag in ["--new-chat", "--soft-clean", "--hard-clean"] {
-        expect_ok(&sb, &[flag]);
-        wait_visible(&sb, None, true);
-        expect_ok(&sb, &["--hide"]);
-        wait_visible(&sb, None, false);
-    }
+    // `--new-chat` is bound to a key to start a chat you are about to read: it shows the window.
+    // (`--provider` does too, see p03. The cleaning and settings commands do not: see D13.)
+    expect_ok(&sb, &["--new-chat"]);
+    wait_visible(&sb, None, true);
+    expect_ok(&sb, &["--hide"]);
+    wait_visible(&sb, None, false);
 
     // precedence: --toggle beats --show; --show beats --hide; --background hides
     expect_ok(&sb, &["--show"]);
@@ -132,6 +131,7 @@ fn p03_switching_providers_by_name_and_by_url() {
     });
 
     expect_ok(&sb, &["--provider", "other"]);
+    wait_visible(&sb, None, true); // README: `--provider` "shows the window"
     let s = sb.wait_state(None, "switch to named provider", |s| s["active"] == "other");
     assert_eq!(s["url"], chat2.url().as_str());
     assert!(

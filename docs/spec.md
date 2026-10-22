@@ -1,9 +1,16 @@
 # llm-wrapper — behavioural specification
 
 This document is the human-readable side of an **executable specification**. The legacy Python
-app (`app.py` + the `llm-wrapper` bash launcher) is the reference for what "1:1" means; the
-black-box suite in `rust/crates/e2e` pins that behaviour down and runs unchanged against the Rust
-implementation as it lands:
+app (`app.py` + the `llm-wrapper` bash launcher) is the reference for what "the same" means.
+
+**"The same" means the same functionality and the same way of using it** — the commands and
+options, the key bindings, the state file other tools read, the window class that compositor rules
+match, the behaviour a user relies on. It does *not* mean the same internals or the same accidents:
+where the legacy app does something that nobody could want (a defect, a side effect), the Rust
+implementation is free to do the sensible thing, and the difference is written down here.
+
+The black-box suite in `rust/crates/e2e` pins the behaviour down and runs unchanged against the
+Rust implementation as it lands:
 
 ```bash
 rust/scripts/e2e.sh                                  # the legacy app — what the spec is derived from
@@ -36,12 +43,12 @@ A legacy test that unexpectedly *passes* fails the suite, so this document canno
 | *(none)* | Toggle the window of a running daemon; start one (visible) if none runs. |
 | `--toggle` / `--show` / `--hide` | Visibility. A fresh daemon has no visible window, so `--toggle` shows it. |
 | `--background` | Start (or keep) the daemon with the window hidden. |
-| `--new-chat` | Load the active provider's root URL again. |
-| `--soft-clean` / `--hard-clean` | Release the memory cache / purge disk and DOM caches (cookies kept). |
-| `--idle-timeout MIN` | Minutes hidden before the deep memory trim (default 15). |
-| `--provider NAME\|URL` | Switch provider; an ad-hoc URL is its own name. |
-| `--add-provider NAME URL` / `--remove-provider NAME` | Edit the persisted provider list. |
-| `--user-agent STRING` | Override the User-Agent for subsequent loads. |
+| `--new-chat` | Load the active provider's root URL again **and show the window**. |
+| `--soft-clean` / `--hard-clean` | Release the memory cache / purge disk and DOM caches (cookies kept). Visibility unchanged. |
+| `--idle-timeout MIN` | Minutes hidden before the deep memory trim (default 15). Visibility unchanged. |
+| `--provider NAME\|URL` | Switch provider (an ad-hoc URL is its own name) **and show the window**, as the README says. |
+| `--add-provider NAME URL` / `--remove-provider NAME` | Edit the persisted provider list. Visibility unchanged. |
+| `--user-agent STRING` | Override the User-Agent for subsequent loads. Visibility unchanged. |
 | `--instance NAME` | Address a separate daemon: own socket, state file, window class, data. |
 | `--quit` | Shut the daemon down. |
 | `-h`, `--help`, `-V`, `--version` | **New** (the legacy app silently ignored them). |
@@ -80,17 +87,23 @@ with `ast`; identical on Python 3.12 and 3.13).
 3. `--add-provider`, then `--remove-provider` (persisted immediately).
 4. Create the window if needed; switch to `--provider` (or stay on the active one).
 5. `--new-chat`, then `--soft-clean`, then `--hard-clean`.
-6. Visibility, first match wins: `--toggle` > `--show` > `--hide` > `--background`(hide) > *otherwise show*.
+6. Visibility, first match wins: `--toggle` > `--show` > `--hide` > `--background`(hide).
+   With none of those, **`--new-chat` and `--provider` show the window and everything else leaves
+   it as it is** (the legacy app shows it after *every* command; see D13). A daemon started by a
+   command that does not show the window therefore starts hidden.
 
-### Quirks kept on purpose (change only by decision)
+### Behaviours kept on purpose
 
-* **Q1** A command with no visibility flag **shows the window** — including `--new-chat`,
-  `--soft-clean` and `--hard-clean` (`p02`). The README binds `--hard-clean` to a key, so that key
-  also pops the window up. Probably unintended; kept until you decide.
-* **Q2** `--toggle --show` hides a visible window (toggle wins); `--hide --show` shows (`p02`).
-* **Q3** `--quit` wins over any other option (`p10`).
-* **Q4** A bare `llm-wrapper` toggles when a daemon runs (bash launcher), whereas `python app.py`
+* **Q1** `--toggle --show` hides a visible window (toggle wins); `--hide --show` shows (`p02`).
+* **Q2** `--quit` wins over any other option (`p10`).
+* **Q3** A bare `llm-wrapper` toggles when a daemon runs (bash launcher), whereas `python app.py`
   with no arguments shows (from reading the code; not tested). Rust follows the launcher.
+
+Dropped as not useful: the legacy habit of showing the window after *any* command. It was kept
+only where it serves the user — `--new-chat` is bound to a key to start a chat you are about to
+read, and the README documents that `--provider` shows the window — and removed for cache
+cleaning and settings, where a window popping up is only a distraction (`--hard-clean` is bound to
+a key of its own).
 
 ---
 
@@ -140,13 +153,15 @@ Each is an *expected failure* on the legacy app and a requirement for the Rust o
 | D10 | One idle connection blocks every other command for ~1 s (serial listener, `recv` timeout). | No head-of-line blocking (< 500 ms). |
 | D11 | After a network failure the recovery loads the provider *root*, not the page you were on (reproduced with a real click, F5 offline, network back). Needs `LW_SLOW=1` (~40 s). | Come back to the same URL. |
 | D12 | `--quit` with no daemon boots GTK/WebKit and creates the data directories first. | Instant, silent, no side effects. |
+| D13 | **Every** command shows the window afterwards, including `--hard-clean`, `--soft-clean`, `--idle-timeout`, `--user-agent`, `--add-provider`, `--remove-provider`. | Only `--new-chat` and `--provider` show it; the others leave visibility alone (section 2). |
 
 ---
 
 ## 5. Deliberate deviations (for your review)
 
-Where "1:1" and "uncompromising on security" disagree, security wins and the difference is listed
-here. All are in code and tested; each can be reverted by editing one function.
+The Rust implementation keeps the functionality and the way of using it; where it differs in
+behaviour, usually for security, the difference is listed here. All are in code and tested; each
+can be reverted by editing one function.
 
 | ID | Deviation | Why |
 |---|---|---|

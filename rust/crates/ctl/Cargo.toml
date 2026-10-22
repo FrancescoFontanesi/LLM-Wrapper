@@ -4,6 +4,7 @@ description = "The `llm-wrapper` command: talks to the running daemon, or starts
 version.workspace = true
 edition.workspace = true
 repository.workspace = true
+license.workspace = true
 publish.workspace = true
 rust-version = "1.80"
 

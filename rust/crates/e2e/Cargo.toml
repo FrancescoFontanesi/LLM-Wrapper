@@ -4,6 +4,7 @@ description = "Black-box end-to-end suite: drives any llm-wrapper implementation
 version.workspace = true
 edition.workspace = true
 repository.workspace = true
+license.workspace = true
 publish.workspace = true
 
 [lints.rust]

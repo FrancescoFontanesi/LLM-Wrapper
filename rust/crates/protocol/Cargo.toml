@@ -4,6 +4,7 @@ description = "Wire protocol, input validation and command-line grammar shared b
 version.workspace = true
 edition.workspace = true
 repository.workspace = true
+license.workspace = true
 publish.workspace = true
 rust-version = "1.80"
 

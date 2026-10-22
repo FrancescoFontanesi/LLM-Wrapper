@@ -304,3 +304,37 @@ fn d12_quitting_what_is_not_running_has_no_side_effects() {
         assert!(!sb.state_path(None).exists() && !sb.socket_path(None).exists());
     });
 }
+
+#[test]
+fn d13_cleaning_and_settings_commands_do_not_pop_the_window_up() {
+    let (sb, _chat) = running!("d13");
+    known_defect(
+        &sb,
+        "D13",
+        "every legacy command ends by showing the window, whatever it was for",
+        || {
+            for args in [
+                &["--soft-clean"][..],
+                &["--hard-clean"],
+                &["--idle-timeout", "20"],
+                &["--user-agent", "E2E-Test/1.0"],
+                &["--add-provider", "extra", "https://extra.example"],
+                &["--remove-provider", "extra"],
+            ] {
+                let out = sb.run(args);
+                assert_eq!(out.code, 0, "{args:?}: {}", out.stderr);
+                thread::sleep(Duration::from_millis(600)); // the legacy daemon acts after replying
+                assert!(!sb.visible(None), "{args:?} showed the window");
+            }
+            // and a visible window stays exactly as it is
+            let out = sb.run(&["--show"]);
+            assert_eq!(out.code, 0);
+            sb.wait_state(None, "window visible", |s| s["visible"] == true);
+            for args in [&["--hard-clean"][..], &["--idle-timeout", "25"]] {
+                assert_eq!(sb.run(args).code, 0);
+                thread::sleep(Duration::from_millis(400));
+                assert!(sb.visible(None), "{args:?} hid the window");
+            }
+        },
+    );
+}
