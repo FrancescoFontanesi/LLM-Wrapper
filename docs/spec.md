@@ -226,13 +226,21 @@ rendering, Intel Xeon 2.1 GHz × 4, WebKitGTK 2.52.6, a tiny fake chat page on l
 numbers are not what a laptop with a GPU shows; compare implementations under the same conditions.**
 Three runs agreed within the spread shown.
 
-| Metric | Legacy |
-|---|---|
-| Cold start (command → state reports the provider), p50 | 252–278 ms |
-| Hotkey: command spawned → state shows new visibility, p50 / p99 | 10.0–10.6 ms / 14.6–19.3 ms |
-| Memory while hidden (PSS): UI / web / network / **total** | 75 / 78 / 27 / **181–182 MiB** |
-| Memory while visible, total | 191–193 MiB |
-| CPU while hidden (10 s) | 0.0–0.2 % |
+| Metric | Legacy | Rust, phase 2 (release build; `baseline-rust-phase2.json`, one run) |
+|---|---|---|
+| Cold start (command → state reports the provider), p50 | 252–278 ms | 177 ms |
+| Hotkey: command spawned → state shows new visibility, p50 / p99 | 10.0–10.6 ms / 14.6–19.3 ms | 6.8 ms / 13.0 ms |
+| Memory while hidden (PSS): UI / web / network / **total** | 75 / 78 / 27 / **181–182 MiB** | 84 / 71 / 27 / **185 MiB** |
+| Memory while visible, total | 191–193 MiB | 202 MiB |
+| CPU while hidden (10 s) | 0.0–0.2 % | 0.0 % |
+
+**The Rust column was measured on a 2.8 GHz Xeon, the legacy column on a 2.1 GHz one, so the time
+figures are not like for like** (re-measure both on one machine before quoting a ratio). Memory is
+not affected by the clock: **phase 2 is not lighter than the legacy app** (+3 MiB hidden, +10 MiB
+visible, the UI process is larger under GTK4's software renderer). That is expected — the memory
+policy (reaping the web process while hidden and idle, measured −75 % earlier) is phase 4, and
+nothing in phase 2 was meant to reduce it. The saving so far is on the command side (1.9–2.1 ms
+per hotkey call for the client against 6.6–7.2 ms for the bash launcher) and in the daemon's startup.
 
 The hotkey figure includes the harness's own 3 ms poll granularity and process spawn with pipes; it
 is meaningful only relative to another implementation measured the same way. In isolation, the
