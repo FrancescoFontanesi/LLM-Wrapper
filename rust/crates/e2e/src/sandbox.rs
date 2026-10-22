@@ -45,7 +45,19 @@ pub struct Sandbox {
     keep: bool,
 }
 
-/// Print a SKIP line and return from the test (or fail when `LW_STRICT=1`).
+/// Print a SKIP line and return from the test: this implementation has nothing to check here by
+/// design (a Rust-only property run on the legacy app, a deliberate change, an opt-in slow test).
+/// Unlike [`skip!`] it is not a failure under `LW_STRICT=1`.
+#[macro_export]
+macro_rules! skip_by_design {
+    ($($arg:tt)*) => {{
+        eprintln!("SKIP: {}", format!($($arg)*));
+        return;
+    }};
+}
+
+/// Print a SKIP line and return from the test, or fail when `LW_STRICT=1`: something the suite
+/// needs (a daemon, a display, a tool) is missing.
 #[macro_export]
 macro_rules! skip {
     ($($arg:tt)*) => {{

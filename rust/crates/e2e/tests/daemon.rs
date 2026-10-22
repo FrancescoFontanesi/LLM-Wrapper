@@ -12,7 +12,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use llm_wrapper_e2e::proc;
-use llm_wrapper_e2e::{skip, FakeChat, Sandbox};
+use llm_wrapper_e2e::{skip, skip_by_design, FakeChat, Sandbox};
 use llm_wrapper_protocol::frame::{self, Kind};
 use llm_wrapper_protocol::{Response, Status};
 
@@ -24,7 +24,7 @@ macro_rules! rust_daemon {
             return;
         };
         if sb.is_legacy() {
-            skip!("Rust daemon only");
+            skip_by_design!("Rust daemon only");
         }
         if !sb.has_daemon() {
             skip!("no Rust daemon built, or no display to open its window");
@@ -412,12 +412,14 @@ fn s10_a_normal_session_raises_no_toolkit_warnings() {
     sb.quit(None);
     assert!(sb.wait_gone(None, SECS(8)));
     // GLib/GTK/WebKit report programming errors (a wrong argument, a bad call order) as
-    // CRITICAL/WARNING lines on stderr and carry on; none may appear. The EGL notes only say that the
-    // virtual X server used by the tests has no DRI3.
+    // CRITICAL/WARNING lines on stderr and carry on; none may appear. Two notes are environmental: the
+    // EGL ones (the virtual X server used by the tests has no DRI3) and the missing accessibility bus.
     let bad: Vec<String> = sb
         .daemon_log(0)
         .lines()
         .filter(|l| !l.starts_with("libEGL"))
+        // the sandboxed web process looks for the accessibility bus, which the test session lacks
+        .filter(|l| !l.contains("Can't connect to a11y bus"))
         .filter(|l| l.contains("CRITICAL") || l.contains("WARNING") || l.contains("-Warning"))
         .map(str::to_owned)
         .collect();

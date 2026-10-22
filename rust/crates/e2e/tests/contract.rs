@@ -5,7 +5,7 @@
 
 use std::time::Duration;
 
-use llm_wrapper_e2e::{skip, Sandbox};
+use llm_wrapper_e2e::{skip_by_design, Sandbox};
 
 macro_rules! rust_only {
     ($label:expr) => {{
@@ -13,7 +13,9 @@ macro_rules! rust_only {
             return;
         };
         if sb.is_legacy() {
-            skip!("legacy launcher starts a GUI daemon for any invocation (see D04, D05, D06)");
+            skip_by_design!(
+                "legacy launcher starts a GUI daemon for any invocation (see D04, D05, D06)"
+            );
         }
         sb
     }};

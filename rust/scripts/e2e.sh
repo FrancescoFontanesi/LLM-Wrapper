@@ -61,10 +61,10 @@ grep -E '^test .* \.\.\. (ok|FAILED)$' "$log" | sed 's/^test //' | sort
 echo
 skips=$(grep -c '^SKIP:' "$log" || true)
 echo "== skipped: $skips"
-grep '^SKIP:' "$log" | sort | uniq -c | sed 's/^/   /'
+{ grep '^SKIP:' "$log" || true; } | sort | uniq -c | sed 's/^/   /'
 echo "== known defects confirmed (expected failures on legacy):"
-grep '^xfail ' "$log" | sort | sed 's/^/   /'
+{ grep '^xfail ' "$log" || true; } | sort | sed 's/^/   /'
 echo
-grep -E '^test result:' "$log" | sed 's/finished in.*//' | sort | uniq -c
+{ grep -E '^test result:' "$log" || true; } | sed 's/finished in.*//' | sort | uniq -c
 if [ "$status" -ne 0 ]; then echo "== FAILED (exit $status); first failures:"; grep -E -A6 '^---- ' "$log" | head -60; fi
 exit "$status"

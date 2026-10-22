@@ -6,7 +6,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use llm_wrapper_e2e::proc;
-use llm_wrapper_e2e::{skip, FakeChat, Sandbox};
+use llm_wrapper_e2e::{skip, skip_by_design, FakeChat, Sandbox};
 use serde_json::{json, Value};
 
 const SECS: fn(u64) -> Duration = Duration::from_secs;
@@ -260,7 +260,7 @@ fn p07b_default_user_agent_is_chromium_like_on_the_legacy_app() {
         skip!("no Rust daemon yet")
     };
     if !sb.is_legacy() {
-        skip!(
+        skip_by_design!(
             "deliberately changed: the compat profile decides the User-Agent (docs/spec.md D-ua)"
         );
     }

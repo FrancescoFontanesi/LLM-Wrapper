@@ -9,7 +9,7 @@ use std::thread;
 use std::time::Duration;
 
 use llm_wrapper_e2e::proc;
-use llm_wrapper_e2e::{known_defect, skip, FakeChat, Sandbox};
+use llm_wrapper_e2e::{known_defect, skip, skip_by_design, FakeChat, Sandbox};
 
 const SECS: fn(u64) -> Duration = Duration::from_secs;
 
@@ -92,7 +92,7 @@ fn k01_assistant_key_bindings() {
 #[test]
 fn k02_d11_after_a_network_failure_the_page_you_were_on_comes_back() {
     if std::env::var_os("LW_SLOW").is_none() {
-        skip!("slow (about 40 s): set LW_SLOW=1");
+        skip_by_design!("slow (about 40 s): set LW_SLOW=1");
     }
     if !proc::have_x11_tools() {
         skip!("xdotool/xprop or an X display are not available");
