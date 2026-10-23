@@ -8,7 +8,7 @@ Work proceeds in phases; the legacy app keeps working untouched until the Rust o
 | 0 — executable specification of the legacy behaviour, baseline measurements | done |
 | 1 — wire protocol, validation, command-line client | done |
 | 2 — GTK4 + WebKitGTK 6.0 daemon (`llm-wrapperd`): window, control socket, XDG storage, single instance | done — the whole e2e suite passes against it |
-| 3 — navigation policy, per-provider compatibility profile (User-Agent, stealth), permissions, downloads/uploads | not started |
+| 3 — navigation policy, compatibility profile (User-Agent, JavaScript environment), permissions, pop-ups, downloads/uploads, notifications | done — one profile for all providers, see `../docs/spec.md` V15–V21 |
 | 4 — memory policy (reap the web process while hidden and idle) | not started |
 | 5 — packaging, retirement of the Python app | not started |
 
@@ -16,7 +16,7 @@ Work proceeds in phases; the legacy app keeps working untouched until the Rust o
 crates/protocol   wire format, validation, CLI grammar — no dependencies, parses untrusted bytes
 crates/platform   runtime directory checks, socket client, private files — no dependencies
 crates/ctl        the `llm-wrapper` command (client; starts the daemon when none runs)
-crates/daemon     `llm-wrapperd`: GTK4 + WebKitGTK 6.0 window, control socket, state (gtk4, webkit6, serde_json)
+crates/daemon     `llm-wrapperd`: GTK4 + WebKitGTK 6.0 window, control socket, state, navigation policy (gtk4, webkit6, serde_json)
 crates/e2e        black-box suite + fake chat site + benchmark; drives any implementation
 scripts/          build-release.sh (static client + daemon), e2e.sh (suite / benchmark under Xvfb)
 ../docs/          spec.md, wire-protocol.md, security.md, baseline-legacy.json

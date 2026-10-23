@@ -7,7 +7,8 @@
 #   scripts/e2e.sh --bench [OUT.json]   # baseline measurements instead of tests
 #   scripts/e2e.sh -- <args for cargo test>
 #
-# Needs: xvfb-run, dbus-daemon, cargo. xdotool + xprop enable the keyboard/window-class tests.
+# Needs: xvfb-run, dbus-daemon, cargo. xdotool + xprop enable the keyboard/window-class tests, and
+# dbus-monitor (package dbus-bin) the check that a finished download is announced.
 # cargo has no "skipped" state, so the summary below lists every SKIP explicitly.
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."

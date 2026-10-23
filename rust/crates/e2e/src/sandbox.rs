@@ -350,6 +350,16 @@ impl Sandbox {
         .unwrap();
     }
 
+    /// Is `dbus-monitor` installed (package `dbus-bin`)? Watching notifications needs it.
+    pub fn can_watch_notifications() -> bool {
+        Command::new("dbus-monitor")
+            .arg("--version")
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status()
+            .is_ok()
+    }
+
     /// Record the desktop notifications the app sends, by spying on the private session bus.
     pub fn watch_notifications(&mut self) {
         let f = fs::File::create(self.notification_log()).unwrap();

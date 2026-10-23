@@ -28,7 +28,7 @@ Test families (all under `rust/crates/e2e/tests/`):
 | `p` | `parity.rs` | Must behave identically in legacy and Rust. |
 | `d` | `defects.rs` | Legacy **fails** these (expected failure, enforced); Rust must pass. |
 | `c` | `contract.rs` | Client-only contract; needs no daemon. |
-| `k` | `keyboard.rs` | Real key/mouse input on X11. Own binary: see the note in the file. |
+| `k` | `keyboard.rs` | Real key/mouse input on X11 (keys, link clicks, the save and upload dialogs). Own binary: see the note in the file. |
 | `s` | `daemon.rs` | What only the Rust daemon promises: hostile peers, one instance, private files, no planted links, clean shutdown. Skipped on legacy. |
 
 A legacy test that unexpectedly *passes* fails the suite, so this document cannot drift.
@@ -123,6 +123,15 @@ with `ast`; identical on Python 3.12 and 3.13).
 * **Q3** A bare `llm-wrapper` toggles when a daemon runs (bash launcher), whereas `python app.py`
   with no arguments shows (from reading the code; not tested). Rust follows the launcher.
 
+* **Q4** A link to another site opens in the default browser and the window stays where it was
+  (`k03` for a plain link, `k04` for `target=_blank`: both pass on the legacy app and on Rust).
+* **Q5** A link to `mailto:`, `file:` or an application scheme does nothing (`k05`, both).
+* **Q6** A download asks where to save it, can be cancelled, and is announced when it finishes
+  (`k07`, `k09`; the announcement is checked on Rust only, the legacy app runs `notify-send`).
+* **Q7** Pages see a Chrome-on-Linux environment — `navigator.webdriver`, `vendor`, `window.chrome`,
+  `userAgentData`, plugins — in every frame, popups included, and the containment style sheet
+  applies (`p16`, identical on both; only the Chrome version differs, V15).
+
 Dropped as not useful: the legacy habit of showing the window after *any* command. It was kept
 only where it serves the user — `--new-chat` is bound to a key to start a chat you are about to
 read, and the README documents that `--provider` shows the window — and removed for cache
@@ -204,18 +213,24 @@ can be reverted by editing one function.
 | V08 | New framed binary protocol on a **versioned socket name** (`.v1.sock`). | The legacy daemon answers `OK` to *anything*: bytes it cannot parse are read as stray command-line arguments, ignored, and the default action (show the window) runs. Binary frames sent to it would pop the window up and report success. Distinct names keep incompatible versions from ever talking. |
 | V09 | The client refuses an unsafe runtime dir / socket (symlink, wrong owner, group/other access). | See `security.md`. |
 | V10 | The daemon is started from the file named `llm-wrapperd` next to the client, never through `PATH`, and only if it and every parent are trustworthy. | Binary planting. |
-| V11 | **Camera/microphone (`enable_media_stream`) and encrypted media (DRM) are off** in the Rust daemon; the legacy app turned both on. | Voice mode is not used (your answer 5): with them off the page can never ask for the microphone. Say if you want voice back; it is one line in `ui.rs` plus a permission prompt policy (Phase 3). |
+| V11 | **Camera/microphone (`enable_media_stream`) and encrypted media (DRM) are off** in the Rust daemon; the legacy app turned both on. | Voice mode is not used (your answer 5, confirmed again for phase 3): with them off the page can never ask for the microphone. Voice back would be one line in `ui.rs` plus a permission prompt. |
 | V12 | Data, cache and config move to the XDG directories (see section 3); the sessions of the legacy app are not migrated. | D07; a repository checkout is not a place for logins. |
 | V13 | An existing directory of ours with loose permissions is *tightened to `0700` and reported*; a symlink, a foreign owner, or an unreadable/unsafe provider list is *refused and set aside* (`providers.json.untrusted-<time>`), never followed. | Intransigent on planted links; forgiving on the user's own mistakes. |
 | V14 | A daemon started by a command that the daemon then refuses (for instance an unknown `--provider`) exits 1 instead of staying up unnoticed. | D01: a refused command must be visible. |
 
-Planned for later phases and **not implemented yet** (decided earlier, listed so nobody assumes
-otherwise): the memory policy beyond the legacy-like trimming (only the active view stays warm;
-hidden-idle daemons release the web process — measured −75 % memory), the compat profile for
-User-Agent/stealth scripts (the default User-Agent is still the legacy Chrome string for every
-provider, so `p07b` is skipped for Rust), the navigation policy (external links to the default
-browser, popups for OAuth, uploads and downloads; today only `file:` is refused), the permission
-handler, packaging.
+| V15 | The default `User-Agent` and the brands the compatibility script reports say **Chrome 151** (reduced form `Chrome/151.0.0.0`); the legacy app said 131. One constant (`CHROME_FULL_VERSION` in `compat.rs`) drives both, so they cannot disagree. | A 2024 browser version is the kind of thing sites start refusing. 151 is the stable release I could confirm (Chrome Releases blog, 30 July 2026); later ones are published on a two-week cycle and I could not verify them. Update the constant when a site complains; `--user-agent` overrides it for a session. |
+| V16 | **Links and navigations** follow the legacy rule (the provider's own site and the sign-in/bot-check domains stay in the window, everything else goes to the browser) with these differences, each pinned by the fixture generated from the legacy code (`rust/crates/daemon/tests/fixtures/gen_legacy_nav.py`): an IP-address provider matches only that address (legacy: any address ending in the same two numbers); a public suffix is not one site (`attacker.co.uk` is not `example.co.uk`; legacy compared the last two labels); a plain-`http` link to a site, and any link with a `user:password@`, goes to the browser instead of staying in the window; `chatgpt.com.` is `chatgpt.com`; an address that cannot be read unambiguously (backslashes, `%` or non-ASCII in the host, spaces, no host) is refused. | Legacy `is_internal` is the rule the app lives by, so it is kept; these are the places where it was too wide or where its parser and WebKit's disagree. |
+| V17 | **Schemes**: only `http(s)`, `about:`, `blob:` and `data:` are ever navigated to; `file:`, `ftp:`, `mailto:`, `javascript:` and application schemes are refused, and nothing is launched for them. Legacy left them to the web view. | Handing arbitrary schemes to the desktop is how a web page starts programs. |
+| V18 | **Windows a page opens**: a sign-in popup (an address that belongs to the provider or the trusted domains) opens in a window of its own that shares the session, as in legacy, at most four at a time; a window for another site goes to the browser **only after a click** (legacy: for any script, any time); everything else is refused. | A page must not be able to open browser tabs by itself, or flood the screen with windows. |
+| V19 | **Permissions** (notifications, location, clipboard reading, device lists, pointer lock, storage access) are denied explicitly and logged once per kind; legacy denied them by not answering. Camera and microphone: see V11. | Same behaviour, but a decision instead of a default that a WebKit update could change. |
+| V20 | **Downloads and uploads** go through GTK 4's file dialog (the desktop portal when there is one); one dialog at a time, further requests are refused; the name offered is the last component of what the server suggested, stripped of control characters; the page only ever receives the files the user picked. "Download complete/failed" are sent to the notification service over D-Bus (legacy ran `notify-send` through `PATH`). | A page asking for a hundred downloads gets one dialog; no helper program is looked up in `PATH`. |
+| V21 | Not carried over: `allow_modal_dialogs` (legacy `True`), the hardware-acceleration policy (WebKitGTK 6 has none), and the WebGL/Web Audio/MediaSource switches (on by default in WebKit). | Modal page dialogs have no use here; the rest is default behaviour. |
+
+What stays for later phases (decided earlier, listed so nobody assumes otherwise): the memory policy
+beyond the legacy-like trimming (only the active view stays warm; hidden-idle daemons release the
+web process — measured −75 % memory) and packaging. The compatibility profile is **one profile for
+every provider**: the legacy app had no per-provider differences and nothing known calls for any;
+add them when a site gives a reason.
 
 ---
 
@@ -256,8 +271,11 @@ Honest list; each needs a manual check or a better harness:
 * Closing the window with the window-manager button (`delete-event` → hide). X11 `xdotool` here
   has no `WM_DELETE_WINDOW` command and `windowclose` kills the client, so this cannot be driven
   without a window manager.
-* External links opening in the default browser, the upload file chooser, downloads and their
-  notifications (portal dialogs).
+* The **desktop-portal** versions of the file dialogs (the suite has no portal; the GTK 4 dialog
+  is what runs), and a browser other than the fake one that stands in for the default.
+* Real sign-in flows: popups and redirects of ChatGPT, Google, Apple and Microsoft are untested;
+  the suite uses a fake site with a popup that behaves like one. Whether Chrome 151 (V15) is still
+  accepted by the real sites is unknown.
 * The visual effect of zoom keys, `F12` Web Inspector.
 * Real providers (ChatGPT, Gemini, Claude): unreachable from the sandbox; everything runs
   against a fake page. Login flows, Cloudflare/Turnstile behaviour and `content-visibility` on real
@@ -267,7 +285,8 @@ Honest list; each needs a manual check or a better harness:
 * Behaviour on WebKitGTK versions other than 2.52.6.
 * Daemon: the idle timer (`--idle-timeout` expiring, which trims the hidden view — needs minutes and
   has no external effect to observe), the enforcement of the memory-pressure thresholds, the
-  `file:` navigation block (WebKit already refuses `http`→`file`, so the daemon's own check cannot
-  be told apart from outside), the Web Inspector (F12), the peer-uid test when not run as root,
+  `file:` navigation block (WebKit already refuses `http`→`file` and `javascript:` itself before the
+  app is asked, so the daemon's own check cannot be told apart from outside; the unit tests cover
+  it), the Web Inspector (F12), the peer-uid test when not run as root,
   and loading a page once with `--provider X --new-chat` (`s12` passes, but WebKit coalesces a
   repeated load, so the mutation "load twice" cannot be told apart either).

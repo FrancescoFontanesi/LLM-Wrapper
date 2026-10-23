@@ -612,3 +612,23 @@ fn s17_a_page_asking_for_a_hundred_downloads_gets_at_most_one_dialog() {
     let dialogs = proc::windows_named(sb.daemon_pids()[0], "Save File").len();
     assert_eq!(dialogs, 1, "{dialogs} save dialogs are open");
 }
+
+#[test]
+fn s18_closed_popups_make_room_for_new_ones() {
+    let mut sb = rust_daemon!("s18");
+    let chat = FakeChat::start();
+    on_page(&mut sb, &chat, "open-cycle");
+    // four pop-ups come and close themselves; the four that follow must all be let through
+    assert!(
+        chat.wait(SECS(30), |h| h
+            .iter()
+            .filter(|h| h.path.starts_with("/popup-page?n=late"))
+            .count()
+            == 4),
+        "pop-ups that loaded: {:?}",
+        chat.hits()
+            .iter()
+            .map(|h| h.path.clone())
+            .collect::<Vec<_>>()
+    );
+}

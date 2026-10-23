@@ -300,6 +300,9 @@ fn k06_a_permission_asked_with_a_click_reaches_the_app_and_is_denied() {
 
 #[test]
 fn k07_a_download_is_saved_where_the_user_says_and_announced() {
+    if !Sandbox::can_watch_notifications() && std::env::var("LW_IMPL").as_deref() == Ok("rust") {
+        skip!("dbus-monitor (package dbus-bin) is needed to see the notification");
+    }
     let (_guard, mut sb, _chat, pid, window) = desktop!("k07", "link?u=%2Fdownload");
     if !sb.is_legacy() {
         sb.watch_notifications();
@@ -404,4 +407,24 @@ fn k09_cancelling_the_dialog_cancels_the_download() {
     assert!(sb.visible(None));
     assert_eq!(sb.run(&["--hide"]).code, 0);
     assert!(chat.count("/download") <= 1);
+}
+
+#[test]
+fn k10_one_click_opens_the_browser_once() {
+    let (_guard, sb, _chat, _pid, window) = desktop!("k10", "open3");
+    if sb.is_legacy() {
+        skip_by_design!("the legacy app opens the browser once per window request");
+    }
+    assert!(
+        click_until(&window, || !sb.browser_opened().is_empty()),
+        "the browser was never asked to open anything; daemon: {}",
+        sb.daemon_log(0)
+    );
+    thread::sleep(SECS(2));
+    assert_eq!(sb.browser_opened(), ["http://external.test/1"]);
+    assert!(
+        sb.daemon_log(0).contains("too many in a row"),
+        "{}",
+        sb.daemon_log(0)
+    );
 }

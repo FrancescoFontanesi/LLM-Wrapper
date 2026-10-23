@@ -194,6 +194,9 @@ fn serve(mut conn: TcpStream, hits: &Mutex<Vec<Hit>>) {
         "/probe" => ("text/html; charset=utf-8", "", PROBE),
         "/probe-frame" => ("text/html; charset=utf-8", "", PROBE_FRAME),
         "/open" => ("text/html; charset=utf-8", "", OPEN),
+        "/popup-close" => ("text/html; charset=utf-8", "", POPUP_CLOSE),
+        "/open-cycle" => ("text/html; charset=utf-8", "", OPEN_CYCLE),
+        "/open3" => ("text/html; charset=utf-8", "", OPEN_THREE),
         "/open-many" => ("text/html; charset=utf-8", "", OPEN_MANY),
         "/download-many" => ("text/html; charset=utf-8", "", DOWNLOAD_MANY),
         "/perm" => ("text/html; charset=utf-8", "", PERMISSIONS),
@@ -246,6 +249,22 @@ fetch('/report-frame?' + encodeURIComponent(JSON.stringify({webdriver: navigator
 const OPEN: &str = "<!doctype html><title>open</title><script>\
 window.open(new URLSearchParams(location.search).get('u'));\
 fetch('/opener-ran');</script>";
+
+/// A pop-up that closes itself once it has loaded.
+const POPUP_CLOSE: &str = "<!doctype html><title>closing</title><script>\
+fetch('/popup-closed-ran').then(() => window.close());</script>";
+
+/// Opens four pop-ups that close themselves, then, three seconds later, four that stay.
+const OPEN_CYCLE: &str = "<!doctype html><title>cycle</title><script>\
+for (let i = 0; i < 4; i++) window.open('/popup-close?n=' + i);\
+setTimeout(() => { for (let i = 0; i < 4; i++) window.open('/popup-page?n=late' + i); }, 3000);\
+fetch('/opener-ran');</script>";
+
+/// A big button that asks for three windows for other sites in one click (one gesture).
+const OPEN_THREE: &str = "<!doctype html><title>three</title><body style=\"margin:0\">\
+<button id=b style=\"display:block;width:700px;height:200px\">open</button>\
+<script>document.getElementById('b').onclick = () => {\
+ for (let i = 1; i <= 3; i++) window.open('http://external.test/' + i); };</script>";
 
 /// Opens six windows of the same site.
 const OPEN_MANY: &str = "<!doctype html><title>many</title><script>\

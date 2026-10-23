@@ -409,6 +409,9 @@ mod tests {
         for uri in [
             "file:///etc/passwd",
             "FILE:///etc/passwd",
+            "file:/etc/passwd",
+            "file:etc/passwd",
+            "FILE:/etc/passwd",
             "mailto:a@b.example",
             "tel:+123",
             "ftp://example.org/x",
@@ -447,6 +450,8 @@ mod tests {
             "1http://x.example/",
             "https://chatgpt.com/\n",
             "https://caf\u{e9}.example/",
+            "https://chatgpt.com/caf\u{e9}",
+            "https://chatgpt.com/?q=\u{2603}",
         ] {
             assert_eq!(v(uri, CG), Verdict::Block, "{uri:?}");
             assert!(!scheme_allowed(uri), "{uri:?}");
