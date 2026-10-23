@@ -3,7 +3,7 @@
 //! Pure functions over the URI text, so the whole policy is unit-tested without a display. The rule
 //! is the legacy app's — a link stays in the window when its host is one of the domains the chat
 //! sites need to log in, or belongs to the provider's own domain, and goes to the browser otherwise —
-//! with the differences listed in `docs/spec.md` (V15..V19), each pinned by the fixture generated
+//! with the differences listed in `docs/spec.md` (V16..V18), each pinned by the fixture generated
 //! from the legacy code (`tests/fixtures/gen_legacy_nav.py`).
 //!
 //! The text we are given is what `WebKit` puts in its request: already parsed and re-serialised by

@@ -285,8 +285,8 @@ Honest list; each needs a manual check or a better harness:
 * Behaviour on WebKitGTK versions other than 2.52.6.
 * Daemon: the idle timer (`--idle-timeout` expiring, which trims the hidden view — needs minutes and
   has no external effect to observe), the enforcement of the memory-pressure thresholds, the
-  `file:` navigation block (WebKit already refuses `http`→`file` and `javascript:` itself before the
-  app is asked, so the daemon's own check cannot be told apart from outside; the unit tests cover
-  it), the Web Inspector (F12), the peer-uid test when not run as root,
+  refusal of non-web schemes (WebKit already refuses `http`→`file`, `javascript:` and `view-source:`
+  from a page and does nothing with `mailto:`, so the daemon's own refusal cannot be told apart from
+  outside — a mutation that lets them through survives the end-to-end suite; the unit tests cover it), the Web Inspector (F12), the peer-uid test when not run as root,
   and loading a page once with `--provider X --new-chat` (`s12` passes, but WebKit coalesces a
   repeated load, so the mutation "load twice" cannot be told apart either).
