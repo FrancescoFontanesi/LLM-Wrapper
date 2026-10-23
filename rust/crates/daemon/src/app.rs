@@ -7,12 +7,13 @@ use std::rc::Rc;
 use gtk4::prelude::*;
 use gtk4::{gdk, glib};
 use llm_wrapper_protocol::{Request, Response, Status};
-use webkit6::prelude::*;
 
 use crate::core::{self, Active, Model, Providers, Visibility, DEFAULT_IDLE_MINUTES};
 use crate::ipc::Reply;
+use crate::policy::Policy;
 use crate::recovery::Recovery;
 use crate::state::{Snapshot, StateFile};
+use crate::transfers::Transfers;
 use crate::ui::Ui;
 use crate::{log, providers};
 
@@ -25,6 +26,7 @@ struct Mutable {
 pub struct App {
     ui: Ui,
     recovery: Rc<Recovery>,
+    policy: Rc<Policy>,
     state_file: RefCell<StateFile>,
     st: RefCell<Mutable>,
     providers_file: PathBuf,
@@ -39,30 +41,6 @@ fn rejected(message: &str) -> Reply {
     }
 }
 
-/// Never let a page navigate the window to a local file.
-fn forbid_file_navigation(
-    decision: &webkit6::PolicyDecision,
-    kind: webkit6::PolicyDecisionType,
-) -> bool {
-    use webkit6::PolicyDecisionType as Kind;
-    if !matches!(kind, Kind::NavigationAction | Kind::NewWindowAction) {
-        return false;
-    }
-    let Some(navigation) = decision.downcast_ref::<webkit6::NavigationPolicyDecision>() else {
-        return false;
-    };
-    let uri = navigation
-        .navigation_action()
-        .and_then(|mut a| a.request())
-        .and_then(|r| r.uri());
-    if uri.is_some_and(|u| u.to_ascii_lowercase().starts_with("file:")) {
-        log::warn("blocked a navigation to a local file");
-        decision.ignore();
-        return true;
-    }
-    false
-}
-
 impl App {
     pub fn new(
         ui: Ui,
@@ -73,9 +51,14 @@ impl App {
         main_loop: glib::MainLoop,
     ) -> Rc<Self> {
         let recovery = Recovery::attach(&ui.view);
+        let transfers = Transfers::new(ui.window.clone());
+        transfers.attach_downloads(ui.session());
+        let policy = Policy::new(ui.window.clone(), transfers);
+        policy.attach(&ui.view);
         let app = Rc::new(Self {
             ui,
             recovery,
+            policy,
             state_file: RefCell::new(state_file),
             st: RefCell::new(Mutable {
                 model: Model {
@@ -111,10 +94,6 @@ impl App {
             None => glib::Propagation::Proceed,
         });
         self.ui.window.add_controller(keys);
-
-        self.ui
-            .view
-            .connect_decide_policy(|_, decision, kind| forbid_file_navigation(decision, kind));
     }
 
     /// Carry out a request that has been decoded and validated. The answer says what really happened.
@@ -191,6 +170,7 @@ impl App {
         if changed {
             self.ui.set_title_for(&active.name);
             self.recovery.note_requested(&active.url);
+            self.policy.set_provider(&active.url);
             self.ui.load(&active.url);
             self.st.borrow_mut().model.active = Some(active);
         }

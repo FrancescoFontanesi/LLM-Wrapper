@@ -163,8 +163,10 @@ fn s02_idle_connections_cost_nothing_lasting() {
     assert_eq!(sb.run(&["--hide"]).code, 0);
     sb.wait_state(None, "window hidden", |s| s["visible"] == false);
     thread::sleep(Duration::from_millis(500));
+    // A leak would cost one descriptor per connection (200 here); the toolkit may legitimately open
+    // or close a few shared-memory buffers of its own between two measurements.
     assert!(
-        open_fds(pid) <= before,
+        open_fds(pid) <= before + 8,
         "file descriptors grew from {before} to {}",
         open_fds(pid)
     );
@@ -477,4 +479,136 @@ fn s12_switching_provider_with_new_chat_loads_the_page_once() {
         "the provider's page was requested {} times",
         second.count("/")
     );
+}
+
+// ---- Phase 3: what the pages may do ---------------------------------------------------------------
+
+/// Start a hidden daemon whose provider page is `path` on a fresh fake chat site.
+fn on_page(sb: &mut Sandbox, chat: &FakeChat, path: &str) {
+    let url = format!("{}{path}", chat.url());
+    sb.start_hidden(&url);
+}
+
+#[test]
+fn s13_every_permission_a_page_asks_for_is_denied() {
+    let mut sb = rust_daemon!("s13");
+    let chat = FakeChat::start();
+    on_page(&mut sb, &chat, "perm");
+    assert!(
+        chat.wait(SECS(30), |h| h
+            .iter()
+            .any(|h| h.path.starts_with("/report-perm?"))),
+        "the page never got an answer; it reached {:?}; daemon said {:?}",
+        chat.hits().iter().map(|h| h.query()).collect::<Vec<_>>(),
+        sb.daemon_log(0)
+    );
+    let answers = chat
+        .hits()
+        .iter()
+        .find(|h| h.path.starts_with("/report-perm?"))
+        .unwrap()
+        .json();
+    assert_eq!(answers["notification"], "denied", "{answers}");
+    // geolocation: this WebKit build may never even ask; it must not say yes
+    assert_ne!(answers["geolocation"], "granted", "{answers}");
+    assert!(
+        answers["clipboard"]
+            .as_str()
+            .unwrap()
+            .starts_with("denied:")
+            || answers["clipboard"] == "no clipboard api",
+        "{answers}"
+    );
+    // media capture is switched off altogether (docs/spec.md V11): there is nothing to ask for
+    assert_ne!(answers["getUserMedia"], "function", "{answers}");
+    // (a request made without a click never reaches the app; k06 covers the one that does)
+}
+
+#[test]
+fn s14_a_sign_in_popup_opens_in_a_window_of_its_own_with_the_same_environment() {
+    let mut sb = rust_daemon!("s14");
+    let chat = FakeChat::start();
+    on_page(&mut sb, &chat, "open?u=%2Fprobe");
+    assert!(
+        chat.wait(SECS(30), |h| h
+            .iter()
+            .any(|h| h.path.starts_with("/report?"))),
+        "the popup never loaded: {:?}",
+        chat.hits()
+            .iter()
+            .map(|h| h.path.clone())
+            .collect::<Vec<_>>()
+    );
+    let report = chat
+        .hits()
+        .iter()
+        .find(|h| h.path.starts_with("/report?"))
+        .unwrap()
+        .json();
+    // the popup shares the session settings and the compatibility script
+    assert_eq!(report["webdriver"], false, "{report}");
+    assert_eq!(report["vendor"], "Google Inc.", "{report}");
+    assert_eq!(report["contain"], "layout style", "{report}");
+    assert!(sb.browser_opened().is_empty());
+}
+
+#[test]
+fn s15_a_page_cannot_open_more_than_four_windows() {
+    let mut sb = rust_daemon!("s15");
+    let chat = FakeChat::start();
+    on_page(&mut sb, &chat, "open-many");
+    assert!(chat.wait(SECS(30), |h| h.iter().any(|h| h.path == "/opener-ran")));
+    thread::sleep(Duration::from_secs(3));
+    let opened: std::collections::BTreeSet<String> = chat
+        .hits()
+        .iter()
+        .filter(|h| h.path.starts_with("/popup-page?"))
+        .map(|h| h.path.clone())
+        .collect();
+    assert_eq!(opened.len(), 4, "windows that loaded: {opened:?}");
+    assert!(
+        sb.daemon_log(0).contains("too many pop-ups"),
+        "{}",
+        sb.daemon_log(0)
+    );
+}
+
+#[test]
+fn s16_a_page_cannot_send_the_user_to_the_browser_without_a_click() {
+    let mut sb = rust_daemon!("s16");
+    sb.install_fake_browser();
+    let chat = FakeChat::start();
+    on_page(&mut sb, &chat, "open?u=http%3A%2F%2Fexternal.test%2Fx");
+    assert!(chat.wait(SECS(30), |h| h.iter().any(|h| h.path == "/opener-ran")));
+    thread::sleep(Duration::from_secs(2));
+    assert!(
+        sb.browser_opened().is_empty(),
+        "opened: {:?}",
+        sb.browser_opened()
+    );
+    assert!(
+        sb.daemon_log(0)
+            .contains("refused a window for a http address"),
+        "{}",
+        sb.daemon_log(0)
+    );
+}
+
+#[test]
+fn s17_a_page_asking_for_a_hundred_downloads_gets_at_most_one_dialog() {
+    // Without a person to answer the dialog, the first download waits on it and every other one
+    // must be refused at once rather than piling up windows.
+    let mut sb = rust_daemon!("s17");
+    let chat = FakeChat::start();
+    on_page(&mut sb, &chat, "download-many");
+    assert!(chat.wait(SECS(30), |h| h
+        .iter()
+        .filter(|h| h.path.starts_with("/download?"))
+        .count()
+        >= 2));
+    thread::sleep(Duration::from_secs(2));
+    let log = sb.daemon_log(0);
+    assert!(log.contains("another file dialog is already open"), "{log}");
+    let dialogs = proc::windows_named(sb.daemon_pids()[0], "Save File").len();
+    assert_eq!(dialogs, 1, "{dialogs} save dialogs are open");
 }

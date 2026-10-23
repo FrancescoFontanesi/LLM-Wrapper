@@ -1,0 +1,396 @@
+{
+ "allowed_domains": [
+  "accounts.google.com",
+  "appleid.apple.com",
+  "arkoselabs.com",
+  "auth.openai.com",
+  "auth0.openai.com",
+  "cf-assets.com",
+  "challenges.cloudflare.com",
+  "chatgpt.com",
+  "cloudflare.com",
+  "cloudflareinsights.com",
+  "featuregates.org",
+  "identrust.com",
+  "livekit.cloud",
+  "login.live.com",
+  "login.microsoftonline.com",
+  "oaistatic.com",
+  "oaiusercontent.com",
+  "openai.com",
+  "sentry.io",
+  "statsig.com",
+  "statsigapi.net",
+  "turnstile.com"
+ ],
+ "cases": [
+  {
+   "expect": "same",
+   "legacy_external": false,
+   "provider": "https://chatgpt.com",
+   "uri": "https://chatgpt.com/c/abc-123"
+  },
+  {
+   "expect": "same",
+   "legacy_external": false,
+   "provider": "https://chatgpt.com",
+   "uri": "https://chatgpt.com"
+  },
+  {
+   "expect": "same",
+   "legacy_external": false,
+   "provider": "https://chatgpt.com",
+   "uri": "https://cdn.chatgpt.com/x.js"
+  },
+  {
+   "expect": "same",
+   "legacy_external": false,
+   "provider": "https://chatgpt.com",
+   "uri": "https://CHATGPT.COM/"
+  },
+  {
+   "expect": "same",
+   "legacy_external": false,
+   "provider": "https://chatgpt.com",
+   "uri": "https://chatgpt.com:8443/"
+  },
+  {
+   "expect": "same",
+   "legacy_external": false,
+   "provider": "https://chatgpt.com",
+   "uri": "https://openai.com/"
+  },
+  {
+   "expect": "same",
+   "legacy_external": false,
+   "provider": "https://chatgpt.com",
+   "uri": "https://auth.openai.com/authorize"
+  },
+  {
+   "expect": "same",
+   "legacy_external": false,
+   "provider": "https://chatgpt.com",
+   "uri": "https://accounts.google.com/o/oauth2/v2/auth"
+  },
+  {
+   "expect": "same",
+   "legacy_external": false,
+   "provider": "https://chatgpt.com",
+   "uri": "https://appleid.apple.com/auth"
+  },
+  {
+   "expect": "same",
+   "legacy_external": false,
+   "provider": "https://chatgpt.com",
+   "uri": "https://login.microsoftonline.com/common"
+  },
+  {
+   "expect": "same",
+   "legacy_external": false,
+   "provider": "https://chatgpt.com",
+   "uri": "https://challenges.cloudflare.com/turnstile"
+  },
+  {
+   "expect": "same",
+   "legacy_external": false,
+   "provider": "https://chatgpt.com",
+   "uri": "https://oaistatic.com/a.js"
+  },
+  {
+   "expect": "same",
+   "legacy_external": false,
+   "provider": "https://chatgpt.com",
+   "uri": "https://sentry.io/"
+  },
+  {
+   "expect": "same",
+   "legacy_external": true,
+   "provider": "https://chatgpt.com",
+   "uri": "https://example.org/"
+  },
+  {
+   "expect": "same",
+   "legacy_external": true,
+   "provider": "https://chatgpt.com",
+   "uri": "https://notchatgpt.com/"
+  },
+  {
+   "expect": "same",
+   "legacy_external": true,
+   "provider": "https://chatgpt.com",
+   "uri": "https://chatgpt.com.evil.example/"
+  },
+  {
+   "expect": "same",
+   "legacy_external": true,
+   "provider": "https://chatgpt.com",
+   "uri": "https://evil.example/chatgpt.com"
+  },
+  {
+   "expect": "same",
+   "legacy_external": true,
+   "provider": "https://chatgpt.com",
+   "uri": "https://evil.example/?u=https://chatgpt.com"
+  },
+  {
+   "expect": "same",
+   "legacy_external": true,
+   "provider": "https://chatgpt.com",
+   "uri": "https://chatgpt.com@evil.example/"
+  },
+  {
+   "expect": "same",
+   "legacy_external": true,
+   "provider": "https://chatgpt.com",
+   "uri": "https://user:pw@evil.example/"
+  },
+  {
+   "expect": "same",
+   "legacy_external": true,
+   "provider": "https://chatgpt.com",
+   "uri": "https://[2001:db8::1]/"
+  },
+  {
+   "expect": "same",
+   "legacy_external": true,
+   "provider": "https://chatgpt.com",
+   "uri": "https://xn--80ak6aa92e.com/"
+  },
+  {
+   "expect": "same",
+   "legacy_external": false,
+   "provider": "https://gemini.google.com",
+   "uri": "https://gemini.google.com"
+  },
+  {
+   "expect": "same",
+   "legacy_external": false,
+   "provider": "https://gemini.google.com",
+   "uri": "https://www.google.com/search?q=x"
+  },
+  {
+   "expect": "same",
+   "legacy_external": false,
+   "provider": "https://gemini.google.com",
+   "uri": "https://accounts.google.com/"
+  },
+  {
+   "expect": "same",
+   "legacy_external": false,
+   "provider": "https://claude.ai",
+   "uri": "https://claude.ai/chat/1"
+  },
+  {
+   "expect": "same",
+   "legacy_external": true,
+   "provider": "https://claude.ai",
+   "uri": "https://anthropic.com/"
+  },
+  {
+   "expect": "same",
+   "legacy_external": false,
+   "provider": "https://claude.ai",
+   "uri": "https://www.claude.ai/"
+  },
+  {
+   "expect": "same",
+   "legacy_external": false,
+   "provider": "https://chat.mistral.ai",
+   "uri": "https://auth.mistral.ai/login"
+  },
+  {
+   "expect": "same",
+   "legacy_external": false,
+   "provider": "https://chat.mistral.ai",
+   "uri": "https://mistral.ai/"
+  },
+  {
+   "expect": "same",
+   "legacy_external": true,
+   "provider": "https://chat.mistral.ai",
+   "uri": "https://example.com/"
+  },
+  {
+   "expect": "same",
+   "legacy_external": false,
+   "provider": "https://chat.example.co.uk",
+   "uri": "https://login.example.co.uk/"
+  },
+  {
+   "expect": "same",
+   "legacy_external": false,
+   "provider": "http://localhost:3000",
+   "uri": "http://localhost:3000/x"
+  },
+  {
+   "expect": "same",
+   "legacy_external": false,
+   "provider": "http://localhost:3000",
+   "uri": "http://localhost:9999/"
+  },
+  {
+   "expect": "same",
+   "legacy_external": true,
+   "provider": "http://localhost:3000",
+   "uri": "https://example.org/"
+  },
+  {
+   "expect": "same",
+   "legacy_external": false,
+   "provider": "http://127.0.0.1:8080",
+   "uri": "http://127.0.0.1:8080/x"
+  },
+  {
+   "expect": "same",
+   "legacy_external": false,
+   "provider": "http://127.0.0.1:8080",
+   "uri": "http://127.0.0.1:9/"
+  },
+  {
+   "expect": "same",
+   "legacy_external": true,
+   "provider": "http://127.0.0.1:8080",
+   "uri": "http://localhost:3000/"
+  },
+  {
+   "expect": "same",
+   "legacy_external": true,
+   "provider": "http://127.0.0.1:8080",
+   "uri": "http://127.0.0.2/"
+  },
+  {
+   "expect": "deviation:ip_provider",
+   "legacy_external": false,
+   "provider": "http://127.0.0.1:8080",
+   "rust": "external",
+   "uri": "http://10.9.0.1/"
+  },
+  {
+   "expect": "deviation:ip_provider",
+   "legacy_external": false,
+   "provider": "https://203.0.113.5",
+   "rust": "external",
+   "uri": "https://9.9.113.5/"
+  },
+  {
+   "expect": "deviation:multi_part_tld",
+   "legacy_external": false,
+   "provider": "https://chat.example.co.uk",
+   "rust": "external",
+   "uri": "https://attacker.co.uk/"
+  },
+  {
+   "expect": "deviation:multi_part_tld",
+   "legacy_external": false,
+   "provider": "https://chat.example.org.uk",
+   "rust": "external",
+   "uri": "https://other.org.uk/"
+  },
+  {
+   "expect": "deviation:cleartext",
+   "legacy_external": false,
+   "provider": "https://chatgpt.com",
+   "rust": "external",
+   "uri": "http://chatgpt.com/x"
+  },
+  {
+   "expect": "deviation:cleartext",
+   "legacy_external": false,
+   "provider": "https://chatgpt.com",
+   "rust": "external",
+   "uri": "http://auth.openai.com/"
+  },
+  {
+   "expect": "deviation:credentials",
+   "legacy_external": false,
+   "provider": "https://chatgpt.com",
+   "rust": "external",
+   "uri": "https://user:pw@chatgpt.com/"
+  },
+  {
+   "expect": "deviation:credentials",
+   "legacy_external": false,
+   "provider": "https://chatgpt.com",
+   "rust": "external",
+   "uri": "https://chatgpt.com@chatgpt.com/"
+  },
+  {
+   "expect": "deviation:scheme",
+   "legacy_external": false,
+   "provider": "https://chatgpt.com",
+   "rust": "block",
+   "uri": "file:///etc/passwd"
+  },
+  {
+   "expect": "deviation:scheme",
+   "legacy_external": false,
+   "provider": "https://chatgpt.com",
+   "rust": "block",
+   "uri": "mailto:someone@example.org"
+  },
+  {
+   "expect": "deviation:scheme",
+   "legacy_external": false,
+   "provider": "https://chatgpt.com",
+   "rust": "block",
+   "uri": "tel:+123456"
+  },
+  {
+   "expect": "deviation:scheme",
+   "legacy_external": false,
+   "provider": "https://chatgpt.com",
+   "rust": "block",
+   "uri": "ftp://example.org/file"
+  },
+  {
+   "expect": "deviation:scheme",
+   "legacy_external": false,
+   "provider": "https://chatgpt.com",
+   "rust": "block",
+   "uri": "javascript:alert(1)"
+  },
+  {
+   "expect": "deviation:scheme",
+   "legacy_external": false,
+   "provider": "https://chatgpt.com",
+   "rust": "block",
+   "uri": "intent://scan/#Intent;scheme=zxing;end"
+  },
+  {
+   "expect": "deviation:odd_url",
+   "legacy_external": false,
+   "provider": "https://chatgpt.com",
+   "rust": "block",
+   "uri": "https://evil.example\\@chatgpt.com/"
+  },
+  {
+   "expect": "deviation:odd_url",
+   "legacy_external": true,
+   "provider": "https://chatgpt.com",
+   "rust": "block",
+   "uri": "https://chatgpt%2ecom/"
+  },
+  {
+   "expect": "deviation:odd_url",
+   "legacy_external": true,
+   "provider": "https://chatgpt.com",
+   "rust": "block",
+   "uri": "https:///x"
+  },
+  {
+   "expect": "deviation:odd_url",
+   "legacy_external": false,
+   "provider": "https://chatgpt.com",
+   "rust": "block",
+   "uri": "https://chatgpt.com/ x"
+  },
+  {
+   "expect": "deviation:trailing_dot",
+   "legacy_external": true,
+   "provider": "https://chatgpt.com",
+   "rust": "allow",
+   "uri": "https://chatgpt.com./"
+  }
+ ],
+ "python": "3.13.16"
+}

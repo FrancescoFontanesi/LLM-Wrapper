@@ -200,3 +200,65 @@ pub fn click(pid: u32, x: u32, y: u32) -> bool {
     );
     true
 }
+
+/// Ids of the mapped windows of `pid` whose name matches `pattern` (a regular expression).
+pub fn windows_named(pid: u32, pattern: &str) -> Vec<String> {
+    run(
+        "xdotool",
+        &[
+            "search",
+            "--all", // xdotool's default is "any": every window of the process would match
+            "--onlyvisible",
+            "--pid",
+            &pid.to_string(),
+            "--name",
+            pattern,
+        ],
+    )
+    .lines()
+    .map(str::to_owned)
+    .collect()
+}
+
+/// Wait up to `limit` for a mapped window of `pid` named like `pattern`; its id.
+pub fn wait_window(pid: u32, pattern: &str, limit: std::time::Duration) -> Option<String> {
+    let start = std::time::Instant::now();
+    while start.elapsed() < limit {
+        if let Some(id) = windows_named(pid, pattern).into_iter().next() {
+            return Some(id);
+        }
+        std::thread::sleep(std::time::Duration::from_millis(100));
+    }
+    None
+}
+
+/// Focus window `id` and click at (x, y) inside it.
+pub fn click_in(id: &str, x: u32, y: u32) {
+    run("xdotool", &["windowfocus", id]);
+    run(
+        "xdotool",
+        &[
+            "mousemove",
+            "--window",
+            id,
+            &x.to_string(),
+            &y.to_string(),
+            "click",
+            "1",
+        ],
+    );
+}
+
+/// Press `keys` (xdotool syntax) in whatever has the input focus. A dialog the app has just opened
+/// has it already; moving it with `windowfocus` makes GTK treat the dialog as inactive.
+pub fn press_focused(keys: &str) {
+    run("xdotool", &["key", "--clearmodifiers", keys]);
+}
+
+/// Type `text` into whatever has the input focus.
+pub fn type_focused(text: &str) {
+    run(
+        "xdotool",
+        &["type", "--clearmodifiers", "--delay", "20", text],
+    );
+}

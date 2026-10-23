@@ -14,10 +14,7 @@ use webkit6::{
     NetworkSession, Settings, WebContext, WebView, WebsiteDataTypes,
 };
 
-/// What the legacy app presented itself as; `ChatGPT`'s bot checks need it. It becomes a per-provider
-/// compatibility profile in a later phase.
-const COMPAT_USER_AGENT: &str =
-    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+use crate::compat;
 
 const DEFAULT_WIDTH: i32 = 794;
 const DEFAULT_HEIGHT: i32 = 1286;
@@ -91,13 +88,15 @@ impl Ui {
         settings.set_enable_page_cache(true);
         settings.set_enable_developer_extras(true); // F12
         settings.set_enable_site_specific_quirks(true);
+        settings.set_javascript_can_open_windows_automatically(true); // sign-in popups open after async work
         settings.set_enable_media_stream(false); // no voice mode, so no microphone prompts
         settings.set_enable_encrypted_media(false);
-        settings.set_user_agent(Some(COMPAT_USER_AGENT));
+        settings.set_user_agent(Some(&compat::user_agent()));
 
         let view = WebView::builder()
             .web_context(&context)
             .network_session(&session)
+            .user_content_manager(&compat::content_manager())
             .settings(&settings)
             .build();
         let window = gtk4::Window::builder()
@@ -120,6 +119,11 @@ impl Ui {
     }
 
     // ---- window --------------------------------------------------------------------------------
+
+    /// The network session (downloads are observed on it).
+    pub fn session(&self) -> &NetworkSession {
+        &self.session
+    }
 
     pub fn is_visible(&self) -> bool {
         self.window.is_visible()

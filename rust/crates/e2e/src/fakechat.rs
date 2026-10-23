@@ -19,6 +19,36 @@ pub struct Hit {
     pub at: Instant,
 }
 
+impl Hit {
+    /// The query string, percent-decoded (what `encodeURIComponent` in the pages produced).
+    pub fn query(&self) -> String {
+        let raw = self.path.split_once('?').map_or("", |(_, q)| q);
+        let bytes = raw.as_bytes();
+        let mut out = Vec::new();
+        let mut i = 0;
+        while i < bytes.len() {
+            if bytes[i] == b'%' {
+                if let Some(v) = raw
+                    .get(i + 1..i + 3)
+                    .and_then(|h| u8::from_str_radix(h, 16).ok())
+                {
+                    out.push(v);
+                    i += 3;
+                    continue;
+                }
+            }
+            out.push(bytes[i]);
+            i += 1;
+        }
+        String::from_utf8_lossy(&out).into_owned()
+    }
+
+    /// The query string as JSON, for the pages that report an object.
+    pub fn json(&self) -> serde_json::Value {
+        serde_json::from_str(&self.query()).unwrap_or(serde_json::Value::Null)
+    }
+}
+
 pub struct FakeChat {
     addr: SocketAddr,
     hits: Arc<Mutex<Vec<Hit>>>,
@@ -154,16 +184,118 @@ fn serve(mut conn: TcpStream, hits: &Mutex<Vec<Hit>>) {
             .write_all(b"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
         return;
     }
+    let route = path.split('?').next().unwrap_or("/").to_owned();
     hits.lock().unwrap().push(Hit {
         path,
         user_agent,
         at: Instant::now(),
     });
-    let body = PAGE.as_bytes();
+    let (content_type, extra, body) = match route.as_str() {
+        "/probe" => ("text/html; charset=utf-8", "", PROBE),
+        "/probe-frame" => ("text/html; charset=utf-8", "", PROBE_FRAME),
+        "/open" => ("text/html; charset=utf-8", "", OPEN),
+        "/open-many" => ("text/html; charset=utf-8", "", OPEN_MANY),
+        "/download-many" => ("text/html; charset=utf-8", "", DOWNLOAD_MANY),
+        "/perm" => ("text/html; charset=utf-8", "", PERMISSIONS),
+        "/perm-click" => ("text/html; charset=utf-8", "", PERMISSION_CLICK),
+        "/link" => ("text/html; charset=utf-8", "", LINK),
+        "/blank" => ("text/html; charset=utf-8", "", BLANK),
+        "/upload" => ("text/html; charset=utf-8", "", UPLOAD),
+        "/download" => (
+            "application/octet-stream",
+            "Content-Disposition: attachment; filename=\"../../evil.bin\"\r\n",
+            DOWNLOAD,
+        ),
+        _ => ("text/html; charset=utf-8", "", PAGE),
+    };
+    let body = body.as_bytes();
     let _ = write!(
         conn,
-        "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nCache-Control: no-store\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+        "HTTP/1.1 200 OK\r\nContent-Type: {content_type}\r\nCache-Control: no-store\r\n{extra}Content-Length: {}\r\nConnection: close\r\n\r\n",
         body.len()
     );
     let _ = conn.write_all(body);
 }
+
+// ---- pages for the Phase 3 behaviour (navigation, windows, permissions, transfers) --------------
+//
+// Each reports what it saw by requesting a path with the facts in the query string; tests read the
+// recorded hits. `u` in the query is the address the page links or opens.
+
+/// What a web page can tell about the browser it runs in, and whether the app's style sheet applied.
+const PROBE: &str = "<!doctype html><title>probe</title><body>\
+<pre><code id=c>x</code></pre><iframe src=\"/probe-frame\"></iframe>\
+<script>(async () => {\
+ const r = {webdriver: navigator.webdriver, vendor: navigator.vendor, chrome: typeof window.chrome,\
+  runtime: !!(window.chrome && window.chrome.runtime), plugins: navigator.plugins.length,\
+  ua: navigator.userAgent, contain: getComputedStyle(document.getElementById('c')).contain};\
+ const d = navigator.userAgentData;\
+ if (d) { r.brands = d.brands.map(b => b.brand + '/' + b.version).join(','); r.mobile = d.mobile;\
+  r.platform = d.platform; const h = await d.getHighEntropyValues([]);\
+  r.arch = h.architecture; r.bitness = h.bitness; r.full = h.fullVersionList.map(b => b.version).join(','); }\
+ await fetch('/report?' + encodeURIComponent(JSON.stringify(r)));\
+})();</script>";
+
+/// The same, from inside a frame (the bot checks run in frames).
+const PROBE_FRAME: &str = "<!doctype html><title>frame</title><script>\
+fetch('/report-frame?' + encodeURIComponent(JSON.stringify({webdriver: navigator.webdriver,\
+ vendor: navigator.vendor, brands: navigator.userAgentData && navigator.userAgentData.brands.length})));\
+</script>";
+
+/// Opens `u` in a new window at once, with no click (what a sign-in flow or an ad does).
+const OPEN: &str = "<!doctype html><title>open</title><script>\
+window.open(new URLSearchParams(location.search).get('u'));\
+fetch('/opener-ran');</script>";
+
+/// Opens six windows of the same site.
+const OPEN_MANY: &str = "<!doctype html><title>many</title><script>\
+for (let i = 0; i < 6; i++) window.open('/popup-page?n=' + i);\
+fetch('/opener-ran');</script>";
+
+/// Asks for every permission a page can ask for. It reports each answer as soon as it has it
+/// (`/perm-step?name=answer`), then everything together (`/report-perm?{...}`), so a request that is
+/// never answered shows up as the step that is missing.
+const PERMISSIONS: &str = "<!doctype html><title>permissions</title><script>(async () => {\
+ const r = {};\
+ const step = async (name, value) => { r[name] = value;\
+  await fetch('/perm-step?' + encodeURIComponent(name + '=' + value)); };\
+ const within = (p) => Promise.race([p, new Promise(res => setTimeout(() => res('timeout'), 4000))]);\
+ await step('getUserMedia', navigator.mediaDevices ? typeof navigator.mediaDevices.getUserMedia : 'no mediaDevices');\
+ await step('notification', await within(Notification.requestPermission()));\
+ await step('clipboard', (navigator.clipboard && navigator.clipboard.readText)\
+  ? await within(navigator.clipboard.readText().then(() => 'read', e => 'denied:' + e.name)) : 'no clipboard api');\
+ await step('geolocation', await within(new Promise(res => navigator.geolocation.getCurrentPosition(\
+  () => res('granted'), e => res('error:' + e.code)))));\
+ await fetch('/report-perm?' + encodeURIComponent(JSON.stringify(r)));\
+})();</script>";
+
+/// A big button that asks for the notification permission when clicked (a request with a gesture).
+const PERMISSION_CLICK: &str = "<!doctype html><title>ask</title><body style=\"margin:0\">\
+<button id=b style=\"display:block;width:700px;height:200px\">ask</button>\
+<script>document.getElementById('b').onclick = async () => {\
+ const answer = await Notification.requestPermission();\
+ await fetch('/report-click?' + encodeURIComponent(answer)); };</script>";
+
+/// A big link to `u` in the same window (to be clicked).
+const LINK: &str = "<!doctype html><title>link</title><body style=\"margin:0\">\
+<a id=l style=\"display:block;width:700px;height:200px;background:#cde\">link</a>\
+<script>document.getElementById('l').href = new URLSearchParams(location.search).get('u');</script>";
+
+/// A big link to `u` for a new window (`target=_blank`, to be clicked).
+const BLANK: &str = "<!doctype html><title>blank</title><body style=\"margin:0\">\
+<a id=l target=_blank style=\"display:block;width:700px;height:200px;background:#cde\">link</a>\
+<script>document.getElementById('l').href = new URLSearchParams(location.search).get('u');</script>";
+
+/// A big file input (to be clicked); reports the name of the file it was given.
+const UPLOAD: &str = "<!doctype html><title>upload</title><body style=\"margin:0\">\
+<input id=f type=file style=\"display:block;width:700px;height:200px\">\
+<script>document.getElementById('f').onchange = e =>\
+ fetch('/uploaded?' + encodeURIComponent(e.target.files[0].name + ':' + e.target.files[0].size));</script>";
+
+/// Starts five downloads at once, as a page that will not take no for an answer would.
+const DOWNLOAD_MANY: &str = "<!doctype html><title>downloads</title><body><script>\
+for (let i = 0; i < 5; i++) { const f = document.createElement('iframe'); f.style.display = 'none';\
+ f.src = '/download?n=' + i; document.body.appendChild(f); }</script></body>";
+
+/// What a download carries.
+const DOWNLOAD: &str = "payload-bytes";

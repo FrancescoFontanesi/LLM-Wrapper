@@ -4,14 +4,19 @@
 //! line. If a daemon for the same instance already runs, the command is handed over to it.
 
 mod app;
+mod compat;
 mod core;
 mod instance;
 mod ipc;
 mod log;
+mod nav;
+mod notify;
 mod paths;
+mod policy;
 mod providers;
 mod recovery;
 mod state;
+mod transfers;
 mod ui;
 
 use std::process::ExitCode;

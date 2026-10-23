@@ -42,6 +42,8 @@ pub struct Sandbox {
     rust_bin: Option<PathBuf>,
     bus: Option<Child>,
     daemons: Vec<(Option<String>, Child, PathBuf)>,
+    /// Observers (a bus monitor...) that must not outlive the sandbox.
+    helpers: Vec<Child>,
     keep: bool,
 }
 
@@ -218,6 +220,7 @@ impl Sandbox {
             rust_bin,
             bus: None,
             daemons: Vec::new(),
+            helpers: Vec::new(),
             keep: std::env::var_os("LW_KEEP").is_some(),
         };
         sb.start_bus();
@@ -309,6 +312,83 @@ impl Sandbox {
             Impl::Legacy => self.root.join("legacy/providers.json"),
             Impl::Rust => self.root.join("xdg/config/llm-wrapper/providers.json"),
         }
+    }
+
+    // ---- the desktop around the app --------------------------------------------------------------
+
+    /// Make a fake default browser for `http` and `https` links: a program that appends the address
+    /// it is given to a file. Install it before the daemon starts.
+    pub fn install_fake_browser(&self) {
+        let script = self.root.join("fake-browser.sh");
+        fs::write(
+            &script,
+            format!(
+                "#!/bin/sh\necho \"$1\" >> '{}'\n",
+                self.browser_log().display()
+            ),
+        )
+        .unwrap();
+        fs::set_permissions(&script, fs::Permissions::from_mode(0o755)).unwrap();
+        let apps = self.root.join("xdg/data/applications");
+        fs::create_dir_all(&apps).unwrap();
+        fs::write(
+            apps.join("fake-browser.desktop"),
+            format!(
+                "[Desktop Entry]\nType=Application\nName=Fake Browser\nExec={} %u\n\
+                 MimeType=x-scheme-handler/http;x-scheme-handler/https;\nNoDisplay=true\n",
+                script.display()
+            ),
+        )
+        .unwrap();
+        let config = self.root.join("xdg/config");
+        fs::create_dir_all(&config).unwrap();
+        fs::write(
+            config.join("mimeapps.list"),
+            "[Default Applications]\nx-scheme-handler/http=fake-browser.desktop\n\
+             x-scheme-handler/https=fake-browser.desktop\n",
+        )
+        .unwrap();
+    }
+
+    /// Record the desktop notifications the app sends, by spying on the private session bus.
+    pub fn watch_notifications(&mut self) {
+        let f = fs::File::create(self.notification_log()).unwrap();
+        let mut cmd = self.command_for(Path::new("dbus-monitor"));
+        cmd.args([
+            "--address".to_owned(),
+            format!("unix:path={}", self.root.join("bus").display()),
+            "type='method_call',interface='org.freedesktop.Notifications',member='Notify'"
+                .to_owned(),
+        ])
+        .stdout(f)
+        .stderr(Stdio::null());
+        self.helpers.push(
+            cmd.spawn()
+                .expect("dbus-monitor is needed to watch notifications"),
+        );
+        thread::sleep(Duration::from_millis(500)); // let it attach to the bus
+    }
+
+    fn notification_log(&self) -> PathBuf {
+        self.root.join("notifications.log")
+    }
+
+    /// What the notification watcher has recorded so far (`dbus-monitor`'s text).
+    pub fn notifications_seen(&self) -> String {
+        fs::read_to_string(self.notification_log()).unwrap_or_default()
+    }
+
+    fn browser_log(&self) -> PathBuf {
+        self.root.join("browser.log")
+    }
+
+    /// Addresses handed to the fake default browser so far.
+    pub fn browser_opened(&self) -> Vec<String> {
+        fs::read_to_string(self.browser_log())
+            .unwrap_or_default()
+            .lines()
+            .map(str::to_owned)
+            .collect()
     }
 
     // ---- running things -----------------------------------------------------------------------
@@ -591,6 +671,10 @@ impl Drop for Sandbox {
             proc::kill9(pid);
         }
         for (_, c, _) in &mut self.daemons {
+            let _ = c.kill();
+            let _ = c.wait();
+        }
+        for c in &mut self.helpers {
             let _ = c.kill();
             let _ = c.wait();
         }

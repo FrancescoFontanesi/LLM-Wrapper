@@ -6,7 +6,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use llm_wrapper_e2e::proc;
-use llm_wrapper_e2e::{skip, skip_by_design, FakeChat, Sandbox};
+use llm_wrapper_e2e::{skip, FakeChat, Sandbox};
 use serde_json::{json, Value};
 
 const SECS: fn(u64) -> Duration = Duration::from_secs;
@@ -255,21 +255,94 @@ fn p07_user_agent_override_reaches_the_server() {
 }
 
 #[test]
-fn p07b_default_user_agent_is_chromium_like_on_the_legacy_app() {
+fn p07b_default_user_agent_is_chrome_on_linux() {
     let Some((sb, chat)) = running("p07b") else {
         skip!("no Rust daemon yet")
     };
-    if !sb.is_legacy() {
-        skip_by_design!(
-            "deliberately changed: the compat profile decides the User-Agent (docs/spec.md D-ua)"
-        );
-    }
     assert!(chat.wait(SECS(15), |h| !h.is_empty()));
+    let ua = &chat.hits()[0].user_agent;
+    let prefix = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/";
+    assert!(ua.starts_with(prefix), "{ua}");
+    let version = ua[prefix.len()..].strip_suffix(".0.0.0 Safari/537.36");
+    let major: u32 = version
+        .and_then(|v| v.parse().ok())
+        .unwrap_or_else(|| panic!("not a reduced Chrome user agent: {ua}"));
+    if sb.is_legacy() {
+        assert_eq!(major, 131, "the legacy app's fixed value");
+    } else {
+        // deliberately newer than the legacy app's (docs/spec.md V15): sites turn away old Chrome
+        assert!(major >= 131, "{ua}");
+    }
+}
+
+#[test]
+fn p16_pages_see_a_chrome_environment_in_every_frame() {
+    let Some(mut sb) = Sandbox::new_or_skip("p16") else {
+        return;
+    };
+    daemon_or_skip!(sb);
+    let chat = FakeChat::start();
+    let url = format!("{}probe", chat.url());
+    sb.start_hidden(&url);
     assert!(
-        chat.hits()[0].user_agent.contains("Chrome/131"),
-        "{:?}",
-        chat.hits()[0]
+        chat.wait(SECS(20), |h| h
+            .iter()
+            .any(|h| h.path.starts_with("/report?"))
+            && h.iter().any(|h| h.path.starts_with("/report-frame?"))),
+        "the probe page never reported: {:?}",
+        chat.hits()
+            .iter()
+            .map(|h| h.path.clone())
+            .collect::<Vec<_>>()
     );
+    let hits = chat.hits();
+    let page = hits
+        .iter()
+        .find(|h| h.path.starts_with("/report?"))
+        .unwrap()
+        .json();
+    let frame = hits
+        .iter()
+        .find(|h| h.path.starts_with("/report-frame?"))
+        .unwrap()
+        .json();
+
+    assert_eq!(page["webdriver"], false);
+    assert_eq!(page["vendor"], "Google Inc.");
+    assert_eq!(page["chrome"], "object");
+    assert_eq!(page["runtime"], true);
+    // WebKit lists its own PDF viewers (five); the app only fills in an empty list with three
+    assert!(page["plugins"].as_u64().unwrap() >= 3, "{page}");
+    assert_eq!(page["mobile"], false);
+    assert_eq!(page["platform"], "Linux");
+    assert_eq!(page["arch"], "x86");
+    assert_eq!(page["bitness"], "64");
+    // the brands name the Chrome the user agent names
+    let ua = page["ua"].as_str().unwrap();
+    let major = ua
+        .split("Chrome/")
+        .nth(1)
+        .and_then(|r| r.split('.').next())
+        .unwrap();
+    let brands = page["brands"].as_str().unwrap();
+    assert_eq!(
+        brands,
+        format!("Chromium/{major},Not_A Brand/24,Google Chrome/{major}")
+    );
+    let full = page["full"].as_str().unwrap();
+    assert!(
+        full.split(',')
+            .next()
+            .unwrap()
+            .starts_with(&format!("{major}.")),
+        "{full}"
+    );
+    // the app's style sheet is in the page
+    assert_eq!(page["contain"], "layout style");
+    // and in frames of their own, where the bot checks run
+    assert_eq!(frame["webdriver"], false);
+    assert_eq!(frame["vendor"], "Google Inc.");
+    assert_eq!(frame["brands"], 3);
 }
 
 // ---- instances, window class, lifecycle ---------------------------------------------------------
