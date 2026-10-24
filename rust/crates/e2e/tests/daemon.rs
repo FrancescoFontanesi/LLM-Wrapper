@@ -848,6 +848,19 @@ fn s22_a_daemon_started_in_the_background_lets_go_too_and_a_new_provider_wakes_i
     thread::sleep(SECS(1));
     assert_eq!(web_processes(pid), 0, "a clean-up woke the page");
 
+    // a provider chosen in the background is loaded at once, without a window
+    let third = FakeChat::start();
+    let background = third.url();
+    assert_eq!(sb.run(&["--background", "--provider", &background]).code, 0);
+    sb.wait_state(None, "provider switched", |s| {
+        s["url"] == background.as_str()
+    });
+    assert!(
+        third.wait(SECS(15), |h| !h.is_empty()),
+        "a provider chosen in the background was not loaded"
+    );
+    assert!(!sb.visible(None));
+
     // another provider: that page loads, the old one is not asked for again
     let other = second.url();
     assert_eq!(sb.run(&["--provider", &other]).code, 0);

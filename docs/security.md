@@ -86,6 +86,15 @@ tests: 30 were caught at once.
   on stderr and carries on — the conservative threshold silently stayed at WebKit's default. Fixed
   (the strict threshold is set first); `s10` now fails on any toolkit warning.
 
+### Controls for letting go of a page (Phase 4)
+
+| # | Control | Test |
+|---|---|---|
+| 38 | **Nothing is lost silently.** A page is let go only when it is quiet (not loading, not playing sound, no pop-up, file dialog or running download) and holds nothing typed or attached and not sent; otherwise it is kept and looked at again. An answer the app cannot read keeps the page. | `reap::tests::*`, e2e `s19`, `s21`, `s24` |
+| 39 | **The page cannot fool the question.** It is put in a JavaScript world of its own, so a page that replaces `querySelectorAll` (to look empty and be thrown away, or the other way round) changes nothing, and a page that never answers is given two seconds. A page can still keep itself alive by really holding text: that costs memory, not safety. | e2e `s24` (the hostile page), `s20` (the question itself, run against every kind of input) |
+| 40 | **What is restored is checked again.** The address brought back is the page the user was on only if it is a web page the app would show anyway (`nav::classify`); otherwise the provider's own address. A hostile page cannot plant an address to be loaded later. | `reap::tests::the_page_you_were_on_comes_back_if_the_app_would_show_it_anyway`, e2e `s19` |
+| 41 | **The memory really goes back**: the window drops its focus widget (which kept the view alive), the web process is told to end, and the daemon checks three seconds later that nothing still holds the view and says so in the log if something does. | e2e `s19` (no web process, no "outlived" in the log) |
+
 ### How the phase 3 tests were checked
 
 Same method again: 28 faults in the navigation rule, the file names, the notification text and the
@@ -100,6 +109,18 @@ against the end-to-end suite.
   refused non-web scheme through. WebKit settles `file:`, `javascript:` and `view-source:` from a
   page by itself, and does nothing with `mailto:` or application schemes, so the app's own refusal
   is defence in depth that only the unit tests can see.
+
+### How the phase 4 tests were checked
+
+Eight faults in the decision (what counts as busy, what a draft is, how the answer is read, the
+retry interval, which address is restored) against the unit tests: all caught. Thirteen in the glue
+(each protection, the restore, the re-checks, the isolated world, the focus fix, ending the web
+process) against the slow end-to-end tests: eleven caught at once, **one gap closed** (a provider
+chosen in the background while the page is let go was not checked to load at once; `s22` does now),
+and **one that cannot be observed** short of waiting fifteen minutes (the line that arms the
+*default* idle timer of a daemon started hidden; the one-minute timer the tests use goes through
+another line). One of the faults the suite caught is the reason for control 41: without clearing the
+window's focus the view lived on after being let go, with its memory.
 
 ## Controls in the daemon (Phase 2) and their proof
 

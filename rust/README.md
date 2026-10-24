@@ -9,7 +9,7 @@ Work proceeds in phases; the legacy app keeps working untouched until the Rust o
 | 1 — wire protocol, validation, command-line client | done |
 | 2 — GTK4 + WebKitGTK 6.0 daemon (`llm-wrapperd`): window, control socket, XDG storage, single instance | done — the whole e2e suite passes against it |
 | 3 — navigation policy, compatibility profile (User-Agent, JavaScript environment), permissions, pop-ups, downloads/uploads, notifications | done — one profile for all providers, see `../docs/spec.md` V15–V21 |
-| 4 — memory policy (reap the web process while hidden and idle) | not started |
+| 4 — memory policy: a hidden, idle page is let go (its web process ends), nothing typed is lost | done — see `../docs/spec.md` V22 and the phase 4 table in section 6 |
 | 5 — packaging, retirement of the Python app | not started |
 
 ```
@@ -43,8 +43,13 @@ scripts/e2e.sh --bench out.json
 * Running the daemon by hand: put `llm-wrapper` and `llm-wrapperd` in the same directory and run
   `llm-wrapper --show`. The client never looks for the daemon anywhere else.
 * `LW_STRICT=1` turns every "skipped: prerequisite missing" in the e2e suite into a failure — use it
-  in CI. `LW_SLOW=1` adds the 40-second network-recovery scenario. `LW_KEEP=1` keeps each test's
+  in CI. `LW_SLOW=1` adds the 40-second network-recovery scenario and the letting-go-of-idle-pages scenarios (`s19`–`s24`; `--idle-timeout` cannot be shorter than a minute, so about three minutes in all). `LW_KEEP=1` keeps each test's
   sandbox directory for inspection.
+* If `/.flatpak-info` exists on the host (inside a flatpak, or left behind as a mount point by
+  bubblewrap run as root — it appeared on the build machine during phase 4), GTK believes it is
+  sandboxed: it sets no `_NET_WM_PID` on its windows and may use the desktop portal for file
+  dialogs. The suite copes (windows are then found by class or title), but a person at a desk would
+  find window rules by pid broken; the file is not something the app creates.
 * Quality gates: `unsafe` is forbidden in every crate of this workspace, clippy `all` and `pedantic`
   are errors, and the client side (`protocol`, `platform`, `ctl`) has no third-party dependencies.
   Details and the proof per control: `../docs/security.md`.

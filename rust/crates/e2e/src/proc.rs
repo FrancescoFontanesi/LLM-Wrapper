@@ -153,17 +153,45 @@ fn run(cmd: &str, args: &[&str]) -> String {
         .unwrap_or_default()
 }
 
-/// X window ids owned by `pid`.
-pub fn windows_of(pid: u32) -> Vec<String> {
+/// Does GTK believe it runs in a sandbox? It does when `/.flatpak-info` exists (a flatpak, or a host
+/// where bubblewrap run as root left the file behind as a mount point), and then it sets no
+/// `_NET_WM_PID` on its windows, so windows can no longer be matched to a process.
+fn gtk_thinks_it_is_sandboxed() -> bool {
+    std::path::Path::new("/.flatpak-info").exists()
+}
+
+/// Mapped windows of the daemon class (`llm-wrapper`, `llm-wrapper-NAME`), whatever their process.
+/// Only a fallback: the suites that look at windows run one daemon at a time.
+fn windows_by_class() -> Vec<String> {
+    run(
+        "xdotool",
+        &["search", "--onlyvisible", "--class", "^llm-wrapper"],
+    )
+    .lines()
+    .map(str::to_owned)
+    .collect()
+}
+
+fn windows_of_pid(pid: u32) -> Vec<String> {
     run("xdotool", &["search", "--pid", &pid.to_string()])
         .lines()
         .map(str::to_owned)
         .collect()
 }
 
+/// X window ids owned by `pid`; where windows carry no process id, the mapped windows of the daemon
+/// class (right for the suites that drive one daemon at a time).
+pub fn windows_of(pid: u32) -> Vec<String> {
+    let owned = windows_of_pid(pid);
+    if owned.is_empty() && gtk_thinks_it_is_sandboxed() {
+        return windows_by_class();
+    }
+    owned
+}
+
 /// `WM_CLASS` of the first window of `pid` that has a class: (instance, class).
 pub fn wm_class(pid: u32) -> Option<(String, String)> {
-    for id in windows_of(pid) {
+    for id in windows_of_pid(pid) {
         let out = run("xprop", &["-id", &id, "WM_CLASS"]);
         if let Some((_, rhs)) = out.split_once('=') {
             let parts: Vec<String> = rhs
@@ -177,6 +205,22 @@ pub fn wm_class(pid: u32) -> Option<(String, String)> {
         }
     }
     None
+}
+
+/// Like [`wm_class`], for tests that run alongside others: where windows carry no process id, a
+/// mapped window whose class is exactly `expected` stands in (the tests give each instance a class
+/// of its own).
+pub fn wm_class_expecting(pid: u32, expected: &str) -> Option<(String, String)> {
+    wm_class(pid).or_else(|| {
+        if !gtk_thinks_it_is_sandboxed() {
+            return None;
+        }
+        let pattern = format!("^{}$", expected.replace('-', "\\-"));
+        let found = !run("xdotool", &["search", "--onlyvisible", "--class", &pattern])
+            .trim()
+            .is_empty();
+        found.then(|| (expected.to_owned(), expected.to_owned()))
+    })
 }
 
 /// Focus the window of `pid`, put the pointer over it, and press `keys` (xdotool syntax).
@@ -216,6 +260,14 @@ pub fn click(pid: u32, x: u32, y: u32) -> bool {
 
 /// Ids of the mapped windows of `pid` whose name matches `pattern` (a regular expression).
 pub fn windows_named(pid: u32, pattern: &str) -> Vec<String> {
+    let found = windows_named_by_pid(pid, pattern);
+    if found.is_empty() && gtk_thinks_it_is_sandboxed() {
+        return windows_titled(pattern);
+    }
+    found
+}
+
+fn windows_named_by_pid(pid: u32, pattern: &str) -> Vec<String> {
     run(
         "xdotool",
         &[

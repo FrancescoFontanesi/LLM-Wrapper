@@ -1,0 +1,170 @@
+{
+ "legacy_heavy": {
+  "cold_start_ms_p50": 277.2,
+  "cpu": "Intel(R) Xeon(R) Processor @ 2.80GHz",
+  "hotkey_launcher_wall_ms_p50": 10.0,
+  "implementation": "legacy (python, GTK3, WebKitGTK 4.1)",
+  "memory_pss_mib": {
+   "hidden": {
+    "network": 27,
+    "network_anon": 8,
+    "total_anon_mib": 209,
+    "total_mib": 330,
+    "ui": 75,
+    "ui_anon": 31,
+    "web": 227,
+    "web_anon": 169
+   },
+   "hidden_and_idle": {
+    "network": 27,
+    "network_anon": 8,
+    "total_anon_mib": 209,
+    "total_mib": 334,
+    "ui": 82,
+    "ui_anon": 31,
+    "web": 225,
+    "web_anon": 169
+   },
+   "visible": {
+    "network": 27,
+    "network_anon": 8,
+    "total_anon_mib": 214,
+    "total_mib": 339,
+    "ui": 86,
+    "ui_anon": 36,
+    "web": 225,
+    "web_anon": 169
+   }
+  },
+  "page": "heavy",
+  "wake_after_idle_ms": {
+   "page_requested_ms": null,
+   "window_visible_ms": 10.0
+  }
+ },
+ "legacy_light": {
+  "cold_start_ms_p50": 252.1,
+  "cpu": "Intel(R) Xeon(R) Processor @ 2.80GHz",
+  "hotkey_launcher_wall_ms_p50": 9.9,
+  "implementation": "legacy (python, GTK3, WebKitGTK 4.1)",
+  "memory_pss_mib": {
+   "hidden": {
+    "network": 27,
+    "network_anon": 8,
+    "total_anon_mib": 59,
+    "total_mib": 181,
+    "ui": 75,
+    "ui_anon": 31,
+    "web": 78,
+    "web_anon": 19
+   },
+   "hidden_and_idle": {
+    "network": 27,
+    "network_anon": 8,
+    "total_anon_mib": 60,
+    "total_mib": 186,
+    "ui": 81,
+    "ui_anon": 31,
+    "web": 77,
+    "web_anon": 19
+   },
+   "visible": {
+    "network": 27,
+    "network_anon": 8,
+    "total_anon_mib": 64,
+    "total_mib": 191,
+    "ui": 86,
+    "ui_anon": 36,
+    "web": 77,
+    "web_anon": 20
+   }
+  },
+  "page": "light (a few KiB)",
+  "wake_after_idle_ms": {
+   "page_requested_ms": null,
+   "window_visible_ms": 11.4
+  }
+ },
+ "rust_heavy": {
+  "cold_start_ms_p50": 176.3,
+  "cpu": "Intel(R) Xeon(R) Processor @ 2.80GHz",
+  "hotkey_launcher_wall_ms_p50": 6.9,
+  "implementation": "rust",
+  "memory_pss_mib": {
+   "hidden": {
+    "network": 27,
+    "network_anon": 8,
+    "total_anon_mib": 209,
+    "total_mib": 341,
+    "ui": 84,
+    "ui_anon": 30,
+    "web": 228,
+    "web_anon": 170
+   },
+   "hidden_and_idle": {
+    "network": 33,
+    "network_anon": 8,
+    "total_anon_mib": 43,
+    "total_mib": 146,
+    "ui": 113,
+    "ui_anon": 35
+   },
+   "visible": {
+    "network": 27,
+    "network_anon": 8,
+    "total_anon_mib": 217,
+    "total_mib": 351,
+    "ui": 97,
+    "ui_anon": 39,
+    "web": 226,
+    "web_anon": 169
+   }
+  },
+  "page": "heavy",
+  "wake_after_idle_ms": {
+   "page_requested_ms": 138.5,
+   "window_visible_ms": 13.0
+  }
+ },
+ "rust_light": {
+  "cold_start_ms_p50": 176.4,
+  "cpu": "Intel(R) Xeon(R) Processor @ 2.80GHz",
+  "hotkey_launcher_wall_ms_p50": 6.8,
+  "implementation": "rust",
+  "memory_pss_mib": {
+   "hidden": {
+    "network": 27,
+    "network_anon": 8,
+    "total_anon_mib": 59,
+    "total_mib": 190,
+    "ui": 84,
+    "ui_anon": 30,
+    "web": 78,
+    "web_anon": 19
+   },
+   "hidden_and_idle": {
+    "network": 33,
+    "network_anon": 8,
+    "total_anon_mib": 44,
+    "total_mib": 146,
+    "ui": 113,
+    "ui_anon": 35
+   },
+   "visible": {
+    "network": 27,
+    "network_anon": 8,
+    "total_anon_mib": 68,
+    "total_mib": 202,
+    "ui": 97,
+    "ui_anon": 39,
+    "web": 77,
+    "web_anon": 19
+   }
+  },
+  "page": null,
+  "wake_after_idle_ms": {
+   "page_requested_ms": 138.9,
+   "window_visible_ms": 13.3
+  }
+ }
+}

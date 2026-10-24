@@ -29,7 +29,7 @@ Test families (all under `rust/crates/e2e/tests/`):
 | `d` | `defects.rs` | Legacy **fails** these (expected failure, enforced); Rust must pass. |
 | `c` | `contract.rs` | Client-only contract; needs no daemon. |
 | `k` | `keyboard.rs` | Real key/mouse input on X11 (keys, link clicks, the save and upload dialogs). Own binary: see the note in the file. |
-| `s` | `daemon.rs` | What only the Rust daemon promises: hostile peers, one instance, private files, no planted links, clean shutdown. Skipped on legacy. |
+| `s` | `daemon.rs` | What only the Rust daemon promises: hostile peers, one instance, private files, no planted links, clean shutdown, what a page may do, and letting go of an idle page (`s19`–`s24`, slow: `LW_SLOW=1`, about three minutes). Skipped on legacy. |
 
 A legacy test that unexpectedly *passes* fails the suite, so this document cannot drift.
 
@@ -46,7 +46,7 @@ A legacy test that unexpectedly *passes* fails the suite, so this document canno
 | `--background` | Start (or keep) the daemon with the window hidden. |
 | `--new-chat` | Load the active provider's root URL again **and show the window**. |
 | `--soft-clean` / `--hard-clean` | Release the memory cache / purge disk and DOM caches (cookies kept). Visibility unchanged. |
-| `--idle-timeout MIN` | Minutes hidden before the deep memory trim (default 15). Visibility unchanged. |
+| `--idle-timeout MIN` | Minutes hidden before the page is let go (Rust; legacy: before the memory caches are dropped), default 15. Visibility unchanged. See V22. |
 | `--provider NAME\|URL` | Switch provider (an ad-hoc URL is its own name) **and show the window**, as the README says. |
 | `--add-provider NAME URL` / `--remove-provider NAME` | Edit the persisted provider list. Visibility unchanged. |
 | `--user-agent STRING` | Override the User-Agent for subsequent loads. Visibility unchanged. |
@@ -226,9 +226,11 @@ can be reverted by editing one function.
 | V20 | **Downloads and uploads** go through GTK 4's file dialog (the desktop portal when there is one); one dialog at a time, further requests are refused; the name offered is the last component of what the server suggested, stripped of control characters; the page only ever receives the files the user picked. "Download complete/failed" are sent to the notification service over D-Bus (legacy ran `notify-send` through `PATH`). | A page asking for a hundred downloads gets one dialog; no helper program is looked up in `PATH`. |
 | V21 | Not carried over: `allow_modal_dialogs` (legacy `True`), the hardware-acceleration policy (WebKitGTK 6 has none), and the WebGL/Web Audio/MediaSource switches (on by default in WebKit). | Modal page dialogs have no use here; the rest is default behaviour. |
 
-What stays for later phases (decided earlier, listed so nobody assumes otherwise): the memory policy
-beyond the legacy-like trimming (only the active view stays warm; hidden-idle daemons release the
-web process — measured −75 % memory) and packaging. The compatibility profile is **one profile for
+| V22 | **A hidden page that has been idle for the idle timeout is let go**: the web view is destroyed, which ends its web process, and showing the window builds a new view and loads the page you were on (not the provider's own address). The legacy app only dropped the in-memory caches and kept the page. A daemon started hidden (`--background` at login) counts its idle time from the start; legacy never trimmed those at all. **Cost:** about 150 ms between the command and the first request for the page (window up in about 13 ms), then the page's own loading; the page's scroll position, open menus and in-page state are lost (the zoom you set with the keys is kept). **Nothing typed is lost:** the page is not let go while it is loading, playing sound, has a pop-up or a file dialog open or a download running (looked at again every minute), nor while it holds something typed or attached and not sent (text fields, text areas, `contenteditable` composers, password fields, a chosen file; asked in a JavaScript world of its own so the page cannot hide it; an answer the app cannot read keeps the page) — then it does what legacy did, drops the caches, and looks again after another idle period. | The memory a hidden page holds is the biggest cost of keeping the app resident (section 6). To keep the legacy behaviour, give `--idle-timeout` a very large value (the maximum is 525 600 minutes). |
+| V23 | A failed download no longer also announces "Download complete", and one the user cancelled is not announced at all. | Legacy connected both handlers to events that both fire on failure. |
+
+What stays for later (decided earlier, listed so nobody assumes otherwise): packaging, and retiring
+the Python app. The compatibility profile is **one profile for
 every provider**: the legacy app had no per-provider differences and nothing known calls for any;
 add them when a site gives a reason.
 
@@ -253,9 +255,35 @@ Three runs agreed within the spread shown.
 figures are not like for like** (re-measure both on one machine before quoting a ratio). Memory is
 not affected by the clock: **phase 2 is not lighter than the legacy app** (+3 MiB hidden, +10 MiB
 visible, the UI process is larger under GTK4's software renderer). That is expected — the memory
-policy (reaping the web process while hidden and idle, measured −75 % earlier) is phase 4, and
+policy (letting go of the page while hidden and idle) is phase 4, whose results are below, and
 nothing in phase 2 was meant to reduce it. The saving so far is on the command side (1.9–2.1 ms
 per hotkey call for the client against 6.6–7.2 ms for the bash launcher) and in the daemon's startup.
+
+### Phase 4: a hidden page that has been idle (`baseline-phase4.json`)
+
+Both implementations measured on the same machine this time (Xeon 2.8 GHz, Xvfb, software
+rendering), a few seconds after the page loaded and again after `--idle-timeout 1` plus 80 s hidden.
+"Light" is the small fake page used above; "heavy" holds about 150 MiB of JavaScript memory, as a
+long conversation on a real site does (those measure in hundreds of MiB). PSS in MiB; in brackets the
+part of it that is private heap (what only exiting gives back).
+
+| | Legacy, light | Rust, light | Legacy, heavy | Rust, heavy |
+|---|---|---|---|---|
+| Hidden, page just loaded | 181 (59) | 190 (59) | 330 (209) | 341 (209) |
+| **Hidden and idle** | 186 (60) | **146 (44)** | 334 (209) | **146 (43)** |
+| Window visible after the command | 11 ms | 13 ms | 10 ms | 13 ms |
+| Page requested after the command | — (never let go) | ~140–165 ms | — | ~140–165 ms |
+
+* Legacy keeps everything it had; Rust ends with the UI process and the network process. On the
+  heavy page that is **57 % of the memory attributed to the app (79 % of the private
+  heap)**; on the light page the saving is small because there was little to give back — the benefit
+  scales with the page.
+* On a real site the number is the one that matters and **I could not measure it** (the sandbox
+  reaches none); the heavy fake page stands in for it. Pages of long conversations are far larger
+  than the light page, so the saving there is expected to be of the order of the heavy one or more.
+* The UI process's PSS *rises* when the web process goes (84 → 113 MiB): the two share the pages of
+  the WebKit libraries, and PSS hands a share to whoever remains. The total is the honest figure.
+* Cold start and the rest: Rust starts in 152–177 ms against the legacy 252 ms, like for like.
 
 The hotkey figure includes the harness's own 3 ms poll granularity and process spawn with pipes; it
 is meaningful only relative to another implementation measured the same way. In isolation, the
@@ -283,10 +311,17 @@ Honest list; each needs a manual check or a better harness:
 * Wayland: window class verified by hand (above); the suite itself runs on X11.
 * The `DBUS_SYSTEM_BUS_ADDRESS` power-saver workaround, GPU behaviour, voice mode (not used).
 * Behaviour on WebKitGTK versions other than 2.52.6.
-* Daemon: the idle timer (`--idle-timeout` expiring, which trims the hidden view — needs minutes and
-  has no external effect to observe), the enforcement of the memory-pressure thresholds, the
+* Daemon: the enforcement of the memory-pressure thresholds, the
   refusal of non-web schemes (WebKit already refuses `http`→`file`, `javascript:` and `view-source:`
   from a page and does nothing with `mailto:`, so the daemon's own refusal cannot be told apart from
   outside — a mutation that lets them through survives the end-to-end suite; the unit tests cover it), the Web Inspector (F12), the peer-uid test when not run as root,
   and loading a page once with `--provider X --new-chat` (`s12` passes, but WebKit coalesces a
   repeated load, so the mutation "load twice" cannot be told apart either).
+* Letting go of a page: whether the draft question is right for the composers of the **real** sites
+  (ChatGPT, Claude, Gemini: ProseMirror and similar editors; only generic inputs are tested), the
+  "playing sound" check (the sandbox has no audio), the zoom you set surviving a rebuild, and the
+  real memory numbers (V22, section 6).
+* The idle timer a daemon that starts hidden gets *by default* (15 minutes): the tests arm it with
+  `--idle-timeout 1`, which goes through a different line, so the line that arms the default is
+  unobserved (a mutation that removes it survives).
+

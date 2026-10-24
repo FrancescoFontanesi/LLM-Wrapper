@@ -374,7 +374,7 @@ fn p08_instances_are_independent() {
         let start = Instant::now();
         let mut class = None;
         while start.elapsed() < SECS(8) && class.is_none() {
-            class = proc::wm_class(pid_a);
+            class = proc::wm_class_expecting(pid_a, "llm-wrapper-a");
             thread::sleep(Duration::from_millis(100));
         }
         assert_eq!(
@@ -405,7 +405,7 @@ fn p09_window_class_is_llm_wrapper() {
     let start = Instant::now();
     let mut class = None;
     while start.elapsed() < SECS(10) && class.is_none() {
-        class = proc::wm_class(pid);
+        class = proc::wm_class_expecting(pid, "llm-wrapper");
         thread::sleep(Duration::from_millis(100));
     }
     assert_eq!(class, Some(("llm-wrapper".into(), "llm-wrapper".into())));
