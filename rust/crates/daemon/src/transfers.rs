@@ -53,6 +53,17 @@ impl Drop for Busy {
     }
 }
 
+/// What a file dialog being open and `downloads` running mean for the page: it is in use.
+fn engaged_by(dialog_open: bool, downloads: usize) -> Option<crate::idle::Busy> {
+    if dialog_open {
+        Some(crate::idle::Busy::Dialog)
+    } else if downloads > 0 {
+        Some(crate::idle::Busy::Download)
+    } else {
+        None
+    }
+}
+
 /// Downloads and uploads for one window.
 pub struct Transfers {
     window: gtk4::Window,
@@ -72,13 +83,7 @@ impl Transfers {
 
     /// Is a file dialog open, or a download running? Then the page is in use.
     pub fn engaged(&self) -> Option<crate::idle::Busy> {
-        if self.dialog_open.get() {
-            Some(crate::idle::Busy::Dialog)
-        } else if self.downloads.get() > 0 {
-            Some(crate::idle::Busy::Download)
-        } else {
-            None
-        }
+        engaged_by(self.dialog_open.get(), self.downloads.get())
     }
 
     /// Handle every download the session starts.
@@ -227,6 +232,17 @@ mod tests {
         assert_eq!(dialog_file_name("na\u{0}me\u{1b}[0m.txt"), "name[0m.txt");
         assert_eq!(dialog_file_name("  spaced name.txt  "), "spaced name.txt");
         assert!(dialog_file_name(&"n".repeat(1000)).len() <= MAX_NAME_BYTES);
+    }
+
+    #[test]
+    fn a_dialog_or_a_running_download_means_the_page_is_in_use() {
+        use crate::idle::Busy;
+        assert_eq!(engaged_by(false, 0), None);
+        assert_eq!(engaged_by(true, 0), Some(Busy::Dialog));
+        assert_eq!(engaged_by(false, 1), Some(Busy::Download));
+        assert_eq!(engaged_by(false, 5), Some(Busy::Download));
+        // the dialog that asks where to save is open while the download waits for the answer
+        assert_eq!(engaged_by(true, 1), Some(Busy::Dialog));
     }
 
     #[test]

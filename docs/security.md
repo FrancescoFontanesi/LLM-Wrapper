@@ -112,7 +112,28 @@ against the end-to-end suite.
 
 ### How the phase 4 tests were checked
 
-Not yet done for the go-home design: the end-to-end run and the fault-injection pass are still pending (work in progress). The numbers of the earlier "let go" design no longer apply.
+Eighteen faults in the new design, run one at a time: seven in the decision and the home-page test
+(`idle.rs`) and three in how a dialog or a download counts as "in use" (`transfers.rs`) against the
+unit tests, eight in the glue against the slow end-to-end tests. All ten unit-level faults were
+caught. Of the eight end-to-end ones **five were caught** (the web process not being replaced, the
+home test inverted, the probe running in the page's own world, the "keep and look again" re-arm
+removed, the pop-up and the "still loading" checks removed) and **three survive, none a gap in what
+the app promises**:
+
+* *The window shown while the page is being asked about its draft* (two seconds at most): it cannot
+  be provoked from outside. The guard stays; it only avoids acting on a window that is already up.
+* *The line that arms the **default** idle timer of a daemon started hidden*: the tests pass
+  `--idle-timeout 1`, which arms it by another path; the default is 15 minutes. Same limit as in the
+  first Phase 4 design.
+* *`recovery.note_requested` before going home*: redundant with the address-change handler, which
+  clears a pending retry of the old page when the address changes. It is kept as the explicit
+  statement of intent.
+
+One more lesson, on the method itself: the first pass of this check reported the unit-level faults
+"caught" because the command had failed to run (the daemon is a binary crate, `--lib` finds nothing).
+The script now counts a fault as caught only on a failed *test result*. The first pass also showed
+that the dialog and download checks were hiding each other in the end-to-end test (a download
+waiting for its save dialog is both): the combination is now a function of its own with a unit test.
 
 ## Controls in the daemon (Phase 2) and their proof
 
