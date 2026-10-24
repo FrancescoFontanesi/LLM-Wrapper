@@ -304,8 +304,9 @@ impl App {
         });
     }
 
-    /// Back to the provider's home page: what a long conversation held in memory goes with it, and
-    /// the next time the window is shown the page that is there is the light one, already loaded.
+    /// Back to the provider's home page, in a new web process: what a long conversation held in
+    /// memory goes with the old one, and the next time the window is shown the page that is there
+    /// is the light one, already loaded.
     fn go_home(&self) {
         let provider = self
             .st

@@ -2,9 +2,10 @@
 //!
 //! The provider's home page is cheap and is kept loaded, so showing the window is instant. A page
 //! the user went on to (a conversation, a long page) is not: after the idle timeout the hidden view
-//! is sent back to the provider's home, which lets go of everything the page held (a long chat can
-//! hold a lot) while the web process stays warm. The page you come back to is the home page, not
-//! the conversation: that one is a click away and is loaded from the site when asked for.
+//! is sent back to the provider's home in a new web process, which lets go of everything the page
+//! held (a long chat can hold a lot; loading home into the same process gave back almost nothing).
+//! The page you come back to is the home page, already loaded, not the conversation: that one is a
+//! click away and is loaded from the site when asked for.
 //!
 //! Going home costs something — an unsent message, a half-filled form, a file attached and not yet
 //! sent, a page in the middle of loading or playing sound would be lost or cut — so it only happens
