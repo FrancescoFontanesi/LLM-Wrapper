@@ -197,6 +197,14 @@ impl Ui {
         // Destroying the view is not enough to end its web process: WebKit may keep it for the next
         // page (measured: still running 40 s later), so it is told to go.
         view.terminate_web_process();
+        // The memory comes back only if nothing else holds the view; say so if something does.
+        let weak = view.downgrade();
+        drop(view);
+        glib::timeout_add_seconds_local_once(3, move || {
+            if weak.upgrade().is_some() {
+                crate::log::warn("the web view outlived being let go: its memory was not returned");
+            }
+        });
         uri
     }
 

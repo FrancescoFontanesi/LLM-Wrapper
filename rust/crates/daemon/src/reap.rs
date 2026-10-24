@@ -98,6 +98,11 @@ mod tests {
     use super::*;
 
     #[test]
+    fn a_busy_page_is_looked_at_again_every_minute() {
+        assert_eq!(BUSY_RETRY, Duration::from_secs(60));
+    }
+
+    #[test]
     fn a_quiet_page_without_a_draft_is_let_go() {
         assert_eq!(decide(None, Draft::None), Decision::Reap);
     }

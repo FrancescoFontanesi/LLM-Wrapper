@@ -694,6 +694,13 @@ fn s19_a_hidden_idle_page_is_let_go_and_comes_back_where_it_was() {
         "{}",
         sb.daemon_log(0)
     );
+    // nothing holds on to the view, so its memory is really returned (the daemon checks after 3 s)
+    thread::sleep(SECS(5));
+    assert!(
+        !sb.daemon_log(0).contains("outlived"),
+        "{}",
+        sb.daemon_log(0)
+    );
     // the daemon itself carries on: state file, socket, answers
     assert_eq!(sb.state(None).unwrap()["visible"], false);
     assert_eq!(sb.state(None).unwrap()["url"], url.as_str());
@@ -913,5 +920,69 @@ fn s23_a_new_chat_while_the_page_is_let_go_starts_from_the_provider_and_an_open_
         !sb.daemon_log(1).contains("the page was let go"),
         "{}",
         sb.daemon_log(1)
+    );
+}
+
+#[test]
+fn s24_a_page_that_is_loading_has_a_dialog_open_or_hides_its_draft_is_not_let_go() {
+    slow!();
+    let mut sb = rust_daemon!("s24");
+    let quiet = FakeChat::start(); // the control: nothing to keep, so it is let go
+    let (loading, dialog, hostile) = (FakeChat::start(), FakeChat::start(), FakeChat::start());
+    let late = FakeChat::start(); // busy at the first look, quiet by the second
+    let urls = [
+        quiet.url(),
+        format!("{}slow-load", loading.url()),
+        format!("{}download-many", dialog.url()),
+        format!("{}draft-hostile", hostile.url()),
+        format!("{}slow-load?finish=75000", late.url()),
+    ];
+    let mut pids = Vec::new();
+    for (i, url) in urls.iter().enumerate() {
+        let name = format!("i{i}");
+        pids.push(sb.start(&[
+            "--instance",
+            &name,
+            "--background",
+            "--idle-timeout",
+            "1",
+            "--provider",
+            url,
+        ]));
+        sb.wait_state(Some(&name), "instance up", |s| s["url"] == url.as_str());
+    }
+    assert!(dialog.wait(SECS(30), |h| h
+        .iter()
+        .any(|h| h.path.starts_with("/download?"))));
+
+    // the control goes; the others are looked at at least once more (a busy page every minute)
+    assert!(
+        until(SECS(100), || web_processes(pids[0]) == 0),
+        "the control was never let go; daemon: {}",
+        sb.daemon_log(0)
+    );
+    thread::sleep(SECS(45));
+    for (i, what) in [
+        (1, "a page still loading"),
+        (2, "a page with a dialog open"),
+        (3, "a page hiding its draft"),
+    ] {
+        assert!(web_processes(pids[i]) >= 1, "{what} was let go");
+        assert!(
+            !sb.daemon_log(i).contains("the page was let go"),
+            "{what}: {}",
+            sb.daemon_log(i)
+        );
+    }
+    assert!(
+        sb.daemon_log(3).contains("holds something unsent"),
+        "the hostile page hid its draft: {}",
+        sb.daemon_log(3)
+    );
+    // the one that was busy only for a while is let go at a later look
+    assert!(
+        until(SECS(100), || web_processes(pids[4]) == 0),
+        "a page that finished loading was never let go; daemon: {}",
+        sb.daemon_log(4)
     );
 }

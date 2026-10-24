@@ -192,6 +192,12 @@ fn serve(mut conn: TcpStream, hits: &Mutex<Vec<Hit>>) {
         at: Instant::now(),
     });
     let (content_type, extra, body) = match route.as_str() {
+        "/slow-load" => (
+            "text/html; charset=utf-8",
+            "",
+            "<!doctype html><title>slow</title><body>loading...",
+        ),
+        "/draft-hostile" => ("text/html; charset=utf-8", "", DRAFT_HOSTILE),
         "/jump" => ("text/html; charset=utf-8", "", JUMP),
         "/heavy" => ("text/html; charset=utf-8", "", HEAVY),
         "/probe" => ("text/html; charset=utf-8", "", PROBE),
@@ -228,6 +234,24 @@ fn serve(mut conn: TcpStream, hits: &Mutex<Vec<Hit>>) {
         _ => body,
     };
     let body = body.as_bytes();
+    if route == "/slow-load" {
+        // a response that never ends: the page is "loading" for as long as the connection is open
+        let _ = write!(
+            conn,
+            "HTTP/1.1 200 OK\r\nContent-Type: {content_type}\r\nCache-Control: no-store\r\nConnection: close\r\n\r\n"
+        );
+        let _ = conn.write_all(body);
+        let _ = conn.flush();
+        // `?finish=MS` ends it after that long; without, it never ends (well, in five minutes)
+        let finish_ms: u64 = path_query
+            .split_once("finish=")
+            .and_then(|(_, v)| v.split('&').next())
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(300_000);
+        thread::sleep(Duration::from_millis(finish_ms));
+        let _ = conn.write_all(b"done</body>");
+        return;
+    }
     let _ = write!(
         conn,
         "HTTP/1.1 200 OK\r\nContent-Type: {content_type}\r\nCache-Control: no-store\r\n{extra}Content-Length: {}\r\nConnection: close\r\n\r\n",
@@ -240,6 +264,14 @@ fn serve(mut conn: TcpStream, hits: &Mutex<Vec<Hit>>) {
 //
 // Each reports what it saw by requesting a path with the facts in the query string; tests read the
 // recorded hits. `u` in the query is the address the page links or opens.
+
+/// A page with a message typed and not sent that tries to hide it from anyone who looks: it replaces
+/// the DOM query functions a question to the page would use.
+const DRAFT_HOSTILE: &str =
+    "<!doctype html><title>hostile</title><body><textarea>an unsent message</textarea><script>\
+Document.prototype.querySelectorAll = function () { return []; };\
+Element.prototype.querySelectorAll = function () { return []; };\
+</script>";
 
 /// Sends the browser on to the address in `to` at once: the provider's own address is one page and
 /// the conversation you end up on is another.
