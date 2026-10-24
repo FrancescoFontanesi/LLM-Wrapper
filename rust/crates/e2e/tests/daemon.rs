@@ -653,11 +653,15 @@ macro_rules! slow {
 
 const WENT_HOME: &str = "back to the provider's home page";
 
-fn web_processes(pid: u32) -> usize {
+fn web_pids(pid: u32) -> Vec<u32> {
     proc::descendants(pid)
         .into_iter()
         .filter(|p| proc::cmdline(*p).contains("WebKitWebProcess"))
-        .count()
+        .collect()
+}
+
+fn web_processes(pid: u32) -> usize {
+    web_pids(pid).len()
 }
 
 /// Wait for `cond` for up to `limit`.
@@ -711,6 +715,8 @@ fn s19_a_hidden_idle_page_goes_back_to_the_home_page_and_is_there_when_shown() {
     sb.wait_state(None, "daemon up", |s| s["url"] == url.as_str());
     assert!(chat.wait(SECS(20), |h| h.iter().any(|h| h.path == "/c/abc-123")));
     assert_eq!(home_loads(&chat), 1);
+    let before_pids = web_pids(pid);
+    assert!(!before_pids.is_empty(), "no web process to begin with");
     assert_eq!(sb.run(&["--idle-timeout", "1"]).code, 0);
     assert_eq!(sb.run(&["--hide"]).code, 0);
 
@@ -724,8 +730,17 @@ fn s19_a_hidden_idle_page_goes_back_to_the_home_page_and_is_there_when_shown() {
         "the home page was not loaded: {:?}",
         paths(&chat)
     );
-    // the page is replaced, not the process: showing the window has nothing left to load
-    assert!(web_processes(pid) >= 1, "the web process was torn down");
+    // the page the conversation lived in is gone with its process (that is what gives the memory
+    // back), and the home page is in a new one, ready: showing the window has nothing left to load
+    assert!(
+        until(SECS(15), || {
+            let now = web_pids(pid);
+            !now.is_empty() && now.iter().all(|p| !before_pids.contains(p))
+        }),
+        "the old web process is still there, or there is no new one: {:?} then {:?}",
+        before_pids,
+        web_pids(pid)
+    );
     let before = chat.total();
     assert_eq!(sb.state(None).unwrap()["visible"], false);
     assert_eq!(sb.state(None).unwrap()["url"], url.as_str());

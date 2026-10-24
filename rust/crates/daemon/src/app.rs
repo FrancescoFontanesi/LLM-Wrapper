@@ -317,7 +317,7 @@ impl App {
         let Some(provider) = provider else { return };
         if !idle::is_home(self.ui.current_uri().as_deref(), &provider) {
             self.recovery.note_requested(&provider);
-            self.ui.load(&provider);
+            self.ui.restart_at(&provider);
             log::info("hidden and idle: back to the provider's home page");
         }
         self.ui.set_trimmed(true);

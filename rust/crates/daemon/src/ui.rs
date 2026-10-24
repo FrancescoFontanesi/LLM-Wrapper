@@ -202,6 +202,14 @@ impl Ui {
         self.view.load_uri(url);
     }
 
+    /// Leave the page for `url` in a new web process: the old one, with everything the page it ran
+    /// had piled up, ends and its memory goes back to the system. (Loading `url` into the same
+    /// process was measured to give back almost nothing: the old page's heap is not collected.)
+    pub fn restart_at(&self, url: &str) {
+        self.view.terminate_web_process();
+        self.view.load_uri(url);
+    }
+
     pub fn reload(&self, bypass_cache: bool) {
         if bypass_cache {
             self.view.reload_bypass_cache();

@@ -261,27 +261,32 @@ per hotkey call for the client against 6.6–7.2 ms for the bash launcher) and i
 
 ### Phase 4: a hidden page that has been idle (`baseline-phase4.json`)
 
-Both implementations measured on the same machine this time (Xeon 2.8 GHz, Xvfb, software
-rendering), a few seconds after the page loaded and again after `--idle-timeout 1` plus 80 s hidden.
-"Light" is the small fake page used above; "heavy" holds about 150 MiB of JavaScript memory, as a
-long conversation on a real site does (those measure in hundreds of MiB). PSS in MiB; in brackets the
-part of it that is private heap (what only exiting gives back).
+Both implementations measured on the same machine (Xeon 2.8 GHz, Xvfb, software rendering), a few
+seconds after the page loaded and again after `--idle-timeout 1` plus 80 s hidden. "Light" is the
+small fake page used above. "Heavy" is a fake provider whose home page sends you on to a page holding
+about 150 MiB of JavaScript memory, as a long conversation on a real site does (those measure in
+hundreds of MiB); for legacy the heavy page is simply the provider. PSS in MiB; in brackets the part
+of it that is private heap (what only exiting gives back).
 
 | | Legacy, light | Rust, light | Legacy, heavy | Rust, heavy |
 |---|---|---|---|---|
-| Hidden, page just loaded | 181 (59) | 190 (59) | 330 (209) | 341 (209) |
-| **Hidden and idle** | 186 (60) | **146 (44)** | 334 (209) | **146 (43)** |
-| Window visible after the command | 11 ms | 13 ms | 10 ms | 13 ms |
-| Page requested after the command | — (never let go) | ~140–165 ms | — | ~140–165 ms |
+| Hidden, page just loaded | 181 (59) | 189 (59) | 329 (209) | 340 (210) |
+| **Hidden and idle** | 186 (60) | 197 (63) | 334 (209) | **195 (64)** |
+| Window visible after the command | 10 ms | 10 ms | 11 ms | 10 ms |
+| Page requested after the command | — | none (already loaded) | — | none (already loaded) |
 
-* Legacy keeps everything it had; Rust ends with the UI process and the network process. On the
-  heavy page that is **57 % of the memory attributed to the app (79 % of the private
-  heap)**; on the light page the saving is small because there was little to give back — the benefit
-  scales with the page.
+* On the heavy page Rust ends **145 MiB lower than where it was (43 %), 139 MiB lower than legacy
+  (42 %)**, and what it ends with is the home page, already loaded. On the light page there is
+  nothing to give back and Rust is **about 11 MiB heavier** than legacy (GTK 4's UI process is
+  larger): the benefit scales with the page.
+* **Loading the home page into the same web process gives back almost nothing** (measured: 349 MiB
+  hidden and idle against 342 before; the old page's heap is not collected, and the back/forward
+  cache is not the reason — turning it off changed nothing). What does is ending the web process and
+  loading the home page in a new one, which is what the app does (the new process is up before
+  anybody asks for the window).
 * On a real site the number is the one that matters and **I could not measure it** (the sandbox
-  reaches none); the heavy fake page stands in for it. Pages of long conversations are far larger
-  than the light page, so the saving there is expected to be of the order of the heavy one or more.
-* The UI process's PSS *rises* when the web process goes (84 → 113 MiB): the two share the pages of
+  reaches none); the heavy fake page stands in for it.
+* The UI process's PSS *rises* when the web process goes (84 → 93 MiB): the two share the pages of
   the WebKit libraries, and PSS hands a share to whoever remains. The total is the honest figure.
 * Cold start and the rest: Rust starts in 152–177 ms against the legacy 252 ms, like for like.
 
@@ -317,10 +322,9 @@ Honest list; each needs a manual check or a better harness:
   outside — a mutation that lets them through survives the end-to-end suite; the unit tests cover it), the Web Inspector (F12), the peer-uid test when not run as root,
   and loading a page once with `--provider X --new-chat` (`s12` passes, but WebKit coalesces a
   repeated load, so the mutation "load twice" cannot be told apart either).
-* Letting go of a page: whether the draft question is right for the composers of the **real** sites
+* Idle page going home: whether the draft question is right for the composers of the **real** sites
   (ChatGPT, Claude, Gemini: ProseMirror and similar editors; only generic inputs are tested), the
-  "playing sound" check (the sandbox has no audio), the zoom you set surviving a rebuild, and the
-  real memory numbers (V22, section 6).
+  "playing sound" check (the sandbox has no audio), and the real memory numbers (V22, section 6).
 * The idle timer a daemon that starts hidden gets *by default* (15 minutes): the tests arm it with
   `--idle-timeout 1`, which goes through a different line, so the line that arms the default is
   unobserved (a mutation that removes it survives).
