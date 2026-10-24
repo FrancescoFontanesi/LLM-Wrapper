@@ -1,0 +1,44 @@
+# Maintainer: (see the repository)
+# Builds the current main branch. Not yet exercised with makepkg: see packaging/README.md.
+pkgname=llm-wrapper-git
+pkgver=0.1.0
+pkgrel=1
+pkgdesc='Quick-summon desktop wrapper for web AI chats (GTK 4 + WebKitGTK 6.0)'
+arch=('x86_64' 'aarch64')
+url='https://github.com/FrancescoFontanesi/LLM-Wrapper'
+license=('MIT')
+depends=('gtk4' 'webkitgtk-6.0' 'bubblewrap' 'xdg-dbus-proxy')
+makedepends=('git' 'rust' 'make')
+optdepends=("xdg-desktop-portal: the desktop's own file dialogs for uploads and downloads")
+provides=('llm-wrapper')
+conflicts=('llm-wrapper')
+source=("git+${url}.git")
+sha256sums=('SKIP')
+
+pkgver() {
+  cd LLM-Wrapper
+  printf '%s.r%s.g%s' \
+    "$(sed -n 's/^version = "\(.*\)"/\1/p' rust/Cargo.toml | head -1)" \
+    "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+}
+
+prepare() {
+  cd LLM-Wrapper/rust
+  cargo fetch --locked
+}
+
+build() {
+  cd LLM-Wrapper
+  make build
+}
+
+check() {
+  cd LLM-Wrapper/rust
+  cargo test --workspace --bins --lib --locked
+}
+
+package() {
+  cd LLM-Wrapper
+  make install DESTDIR="$pkgdir" PREFIX=/usr
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

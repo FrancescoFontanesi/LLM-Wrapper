@@ -35,7 +35,7 @@ import sys
 from pathlib import Path
 from urllib.parse import urlparse
 
-APP = Path(__file__).resolve().parents[5] / "app.py"
+APP = Path(__file__).resolve().parents[5] / "legacy" / "app.py"
 SRC = APP.read_text()
 
 # the one step we cannot execute: make sure it still reads the way this script assumes

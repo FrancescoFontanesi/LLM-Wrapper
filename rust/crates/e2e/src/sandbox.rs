@@ -191,7 +191,7 @@ impl Sandbox {
         let (launcher, rust_bin) = match imp {
             Impl::Legacy => {
                 let src = std::env::var_os("LW_LEGACY_SRC").map_or_else(
-                    || Path::new(env!("CARGO_MANIFEST_DIR")).join("../../.."),
+                    || Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../legacy"),
                     PathBuf::from,
                 );
                 let dir = root.join("legacy");

@@ -15,3 +15,5 @@ providers.json
 
 # Rust build output
 rust/target/
+rust/dist/
+*.tar.gz

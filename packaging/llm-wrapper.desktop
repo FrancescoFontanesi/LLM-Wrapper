@@ -1,8 +1,10 @@
 [Desktop Entry]
 Type=Application
 Name=LLM Wrapper
-Exec=/home/nihil/Extra/LLM-Wrapper/llm-wrapper %U
+Comment=Summon a web AI chat from anywhere
+Exec=llm-wrapper --show
 Icon=internet-chat
 Categories=Network;Utility;
+Terminal=false
 StartupNotify=true
 StartupWMClass=llm-wrapper

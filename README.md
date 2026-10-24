@@ -1,100 +1,119 @@
-# llm-wrapper (GTK + WebKitGTK)
+# llm-wrapper
 
-A lightweight desktop wrapper for web AI chats: ChatGPT by default, plus Gemini, Claude or any URL. Designed as a quick-summon desktop assistant via hotkeys/macros (such as Hyprland, Sway, or Quickshell HUD), featuring instant IPC, proactive RAM management, full file upload/download portal support, and layout containment for long chat histories. You can use it in two ways: one daemon with an instant provider switcher, or one standalone instance per provider.
+A lightweight desktop wrapper for web AI chats: ChatGPT by default, plus Gemini, Claude or any
+`https://` address. Built to be summoned from a hotkey (Hyprland, Sway, a Quickshell bar, any
+compositor or desktop): one small client command talks to a resident daemon that owns a GTK 4 +
+WebKitGTK 6.0 window. Written in Rust.
+
+You can use it in two ways: one daemon with an instant provider switcher, or one standalone
+instance per provider.
+
+> This is the Rust rewrite. The original Python/GTK 3 app is retired and lives, for reference only,
+> in [`legacy/`](legacy/README.md). Usage is the same; the differences are listed under
+> [Coming from the Python version](#coming-from-the-python-version).
 
 ---
 
 ## Highlights
-- Wraps web AI chats in a GTK WebKit2 window with a persistent profile.
-- **Multiple providers**: switch instantly between ChatGPT, Gemini, Claude or any URL; each provider keeps its own page alive, and sign-in popups are supported.
-- Maintains cookies and login state under `./session/`; transient data lives in `./cache/`.
-- Offline recovery: when a page load fails, it retries every 30 s and reloads as soon as the network comes back.
-- Supports custom user agents, background startup, and soft/hard cleanup modes.
-- Ships with a `.desktop` file and ready-to-use Hyprland bindings.
-- **Instant IPC Summon (<10ms)**: Fast-path CLI dispatcher forwards `--toggle`, `--show`, `--hide`, and other commands over a local Unix domain socket directly to the running backend without loading Python/WebKit libraries.
-- **Fast Startup & Session Persistence**: Caches and service workers remain intact on disk under `./cache/` and `./session/`, eliminating slow cold-starts.
-- **Proactive Memory Management**: While the window is visible, the full `WEB_BROWSER` cache model is kept. After the window has been hidden for `--idle-timeout` minutes (default 15), the wrapper switches to `DOCUMENT_VIEWER` and releases the in-memory cache once. The on-disk cache is never wiped automatically.
-- **60 fps on power-saver**: WebKit halves rendering to 30 fps when the system power profile is `power-saver`; the wrapper hides the profile from WebKit (by not exposing the D-Bus system bus) so scrolling and streaming stay smooth.
-- **Long Chat History Optimization**: Injects CSS rules with `content-visibility: auto` so offscreen messages skip layout and painting.
-- **Full File System Integration**:
-  - **Uploads**: Natively handles `run-file-chooser` using `Gtk.FileChooserNative` via XDG Desktop Portal (Hyprland / GTK portal).
-  - **Downloads**: Natively handles `download-started` and `decide-destination` with portal save dialogs and desktop completion notifications.
-  - **Clipboard**: `javascript_can_access_clipboard` enabled for seamless image paste (`Ctrl+V`).
-- **External Links**: Automatically routes external URLs (sources, citations, documentation) to your default desktop browser without leaving the chat.
-- **Assistant Keybindings**:
-  - `Escape`: Instantly dismiss/hide the assistant (the key is not forwarded to the page, so it won't close the chat's own menus).
-  - `Ctrl+N`: Start a clean new chat.
-  - `Ctrl+R` / `F5`: Reload page (`Ctrl+Shift+R` for hard reload).
-  - `Ctrl++` / `Ctrl+-` / `Ctrl+0`: Zoom in, zoom out, and reset zoom.
-  - `F12`: Open Web Inspector for debugging.
-  - Automatic focus on the chat prompt textarea whenever summoned.
+
+- **Instant summon.** `llm-wrapper --toggle` is a ~2 ms static binary that talks to the running
+  daemon over a local Unix socket; the window comes up in about 10 ms.
+- **Persistent profile.** Cookies and login state survive restarts.
+- **Many providers.** ChatGPT, Gemini, Claude or any URL; switch with `--provider`. Sign-in popups
+  work.
+- **Offline recovery.** When a page fails to load it retries every 30 s and reloads as soon as the
+  network is back.
+- **Light on memory.** A hidden window that has been idle for `--idle-timeout` minutes (default 15)
+  goes back to the provider's home page in a fresh web process, so a long conversation's memory is
+  returned to the system; summoning it again shows the home page at once. Nothing is lost: a page
+  with an unsent message, an attached file, a download, a popup, sound or a load in progress is left
+  alone. See [Memory](#memory).
+- **Files through the desktop.** Uploads and downloads use the system file dialogs (the portal when
+  there is one); a page never writes or reads a file you did not pick. Image paste (`Ctrl+V`)
+  works.
+- **External links** (sources, citations, docs) open in your default browser, on a click only.
+- **Security first.** One page cannot open more than four windows, navigate you away, or ask the
+  desktop for permissions (all denied); the control socket is private to your user and checked at
+  both ends; data directories are `0700`. The reasoning and the proof per control are in
+  [`docs/security.md`](docs/security.md).
+- **Assistant keys:** `Esc` hides the window (the page never sees it), `Ctrl+N` new chat, `Ctrl+R` /
+  `F5` reload (`Ctrl+Shift+R` bypasses the cache), `Ctrl++` / `Ctrl+-` / `Ctrl+0` zoom, `F12` Web
+  Inspector. The chat box gets the focus whenever you summon the window.
+- **60 fps on power-saver:** the daemon hides the system power profile from WebKit (otherwise it
+  halves rendering to 30 fps). Not verified on real power-saver hardware.
 
 ---
 
-## Requirements
+## Install
 
-### System packages
-Install GObject introspection, GTK 3, and WebKitGTK from your distribution package manager:
+### Requirements
 
-- **Arch / Garuda Linux**:
-  ```bash
-  sudo pacman -S python-gobject gtk3 webkit2gtk-4.1 xdg-desktop-portal-hyprland
-  ```
-- **Debian / Ubuntu**:
-  ```bash
-  sudo apt install python3-gi gir1.2-gtk-3.0 gir1.2-webkit2-4.1
-  ```
+At run time: **GTK 4**, **WebKitGTK 6.0**, `bubblewrap` and `xdg-dbus-proxy` (WebKit sandboxes its
+web process with them). `xdg-desktop-portal` is recommended for native file dialogs.
 
-Optional but recommended: OpenBSD netcat (`openbsd-netcat` on Arch, `netcat-openbsd` on Debian/Ubuntu). The launcher
-uses `nc -U` for the instant IPC path; without it every command goes through the slower Python fallback.
+To build: Rust **1.89** or newer, the GTK 4 and WebKitGTK 6.0 development packages, and `make`.
 
-On other distributions, install the equivalents for GTK 3 and WebKitGTK 4.0/4.1. The script checks
-for WebKit 4.1 first and transparently falls back to 4.0.
+| Distribution | Build | Run |
+|---|---|---|
+| Arch / Garuda | `sudo pacman -S rust gtk4 webkitgtk-6.0 make` | `sudo pacman -S gtk4 webkitgtk-6.0 bubblewrap xdg-dbus-proxy xdg-desktop-portal` |
+| Debian / Ubuntu 24.04 | Rust 1.89+ from [rustup](https://rustup.rs), `sudo apt install libgtk-4-dev libwebkitgtk-6.0-dev make` | `sudo apt install libgtk-4-1 libwebkitgtk-6.0-4 bubblewrap xdg-dbus-proxy xdg-desktop-portal` |
 
-### Python environment
+Developed and tested with GTK 4.14.5 and WebKitGTK 2.52.6; other versions are unverified.
 
-The launcher uses `.venv/` if it exists and otherwise falls back to the system `python3`, so a virtual environment is optional. If you want one, create it with system site packages enabled (access to the system-wide GI bindings):
+### Build and install
 
 ```bash
-python3 -m venv .venv --system-site-packages
-source .venv/bin/activate
+make build                           # release build into rust/dist
+sudo make install                    # /usr/local/bin, or:
+make install PREFIX=$HOME/.local     # for one user, no root (needs ~/.local/bin on PATH)
 ```
+
+`make install` puts `llm-wrapper` (the command) and `llm-wrapperd` (the daemon) side by side in
+`$PREFIX/bin`, plus the desktop entry. **Keep the two together**: the client starts the daemon from
+its own directory and from nowhere else (never through `PATH`). A symlink to the client works; the
+real file is what counts.
+
+`make uninstall` (same `PREFIX`) removes them. `make dist` makes a tarball of the installed layout.
+Arch users can also try `packaging/arch/PKGBUILD` (never run with `makepkg` yet, see
+[`packaging/README.md`](packaging/README.md)).
+
+Check the installation: `llm-wrapper --version`, then `llm-wrapper --show`.
 
 ---
 
 ## Usage
 
-Run or toggle the application from anywhere:
-
 ```bash
-./llm-wrapper
-./llm-wrapper [flags]
+llm-wrapper                 # toggle the window (starts the daemon the first time)
+llm-wrapper [flags]
 ```
-
-The script understands several optional flags (they can be combined):
 
 | Flag | Description |
 | --- | --- |
-| `--toggle` | Toggle visibility of the assistant (summons or hides window instantly). |
-| `--show` | Ensure the assistant window is visible and focused. |
-| `--hide` | Hide the assistant window into the background. |
-| `--new-chat` | Navigate back to a clean new chat. |
-| `--soft-clean` | Release the in-memory cache (disk cache and session are kept). |
-| `--hard-clean` | Purge disk and DOM caches while preserving login cookies. |
-| `--background` | Launch the backend hidden right away (ideal for autostart). |
-| `--idle-timeout <min>` | Minutes hidden before deep memory trim triggers (default: 15). |
-| `--provider NAME\|URL` | Switch the window to a provider from the list, or to any http(s) URL. Shows the window. |
-| `--add-provider NAME URL` | Add or replace a provider in `providers.json`. |
-| `--remove-provider NAME` | Remove a provider from the list (an already-open view stays until restart). |
-| `--instance NAME` | Run or address a separate daemon: own socket, window class, data and state file. |
-| `--quit` | Gracefully shut down the wrapper daemon. |
-| `--user-agent "UA"` | Override the default Chromium-based user agent string. |
+| `--toggle` | Show the window if hidden, hide it if shown. |
+| `--show` | Show and focus the window. |
+| `--hide` | Hide the window (the daemon keeps running). |
+| `--new-chat` | Open a clean chat with the active provider. Shows the window. |
+| `--soft-clean` | Release the in-memory cache (disk cache and logins stay). |
+| `--hard-clean` | Purge disk and DOM caches, keep login cookies. |
+| `--background` | Start the daemon with the window hidden (for autostart). |
+| `--idle-timeout MIN` | Minutes hidden before the page goes back to the provider's home page (default 15; at most 525 600). |
+| `--provider NAME\|URL` | Switch to a provider from the list, or to any `https://` URL. Shows the window. |
+| `--add-provider NAME URL` | Add or replace a provider. |
+| `--remove-provider NAME` | Remove a provider (an already-open page stays until restart). |
+| `--instance NAME` | Address a separate daemon: own socket, window class, data and state file. |
+| `--user-agent STRING` | Override the User-Agent (printable ASCII, up to 512 bytes). |
+| `--quit` | Shut the daemon down. |
+| `-h`, `--help`, `-V`, `--version` | Help and version. |
+
+Only `--new-chat` and `--provider` show the window; the other commands leave its visibility alone.
+Unknown flags are an error (the Python version ignored them).
 
 ---
 
 ## Providers
 
-Built-in providers (used until a `providers.json` exists):
+Built in (used until you add or remove one):
 
 | Name | URL |
 | --- | --- |
@@ -102,100 +121,157 @@ Built-in providers (used until a `providers.json` exists):
 | `gemini` | https://gemini.google.com |
 | `claude` | https://claude.ai |
 
-`providers.json` is created on the first `--add-provider` or `--remove-provider`, holds the full list and overrides the built-ins. It lives in the repository directory and is gitignored.
+The list is `providers.json` in `$XDG_CONFIG_HOME/llm-wrapper/` (`~/.config/llm-wrapper/`), created by
+the first `--add-provider` or `--remove-provider`; it then holds the full list and overrides the
+built-ins. It is shared by every instance.
 
 ```bash
-./llm-wrapper --provider gemini            # switch the running window to Gemini
-./llm-wrapper --provider https://chat.mistral.ai
-./llm-wrapper --add-provider mistral https://chat.mistral.ai
+llm-wrapper --provider gemini
+llm-wrapper --provider https://chat.mistral.ai
+llm-wrapper --add-provider mistral https://chat.mistral.ai
 ```
 
-Provider names must match `[A-Za-z0-9_-]{1,32}` and URLs must be http or https. Invalid input is reported on stderr and ignored.
+Names match `[A-Za-z0-9_-]{1,32}`. URLs must be `https://`; **plain `http://` is accepted only for
+`localhost`, `127.0.0.0/8` and `::1`** (a login cookie must not cross the network in cleartext).
+Addresses with credentials in them, non-ASCII or oddly written hosts are refused. Invalid input is
+reported on stderr and does nothing.
 
 ---
 
 ## Two ways to run it
 
-1. **Single daemon + switcher** (default): one window; `--provider` switches between providers instantly.
+1. **Single daemon + switcher** (default): one window; `--provider` switches between providers.
 2. **Standalone instances**: one daemon per provider, each started and addressed by name:
    ```bash
-   ./llm-wrapper --instance gemini --provider gemini --background
-   ./llm-wrapper --instance gemini --toggle
+   llm-wrapper --instance gemini --provider gemini --background
+   llm-wrapper --instance gemini --toggle
    ```
-   Each instance has its own socket, window class `llm-wrapper-<name>` (for Hyprland rules), its own data under `instances/<name>/` (log in once per instance), and its own state file.
+   Each instance has its own socket, window class `llm-wrapper-<name>` (for compositor rules), its own
+   login data (log in once per instance) and its own state file.
+
+---
+
+## Memory
+
+While the window is visible the page is left alone. When it has been hidden for `--idle-timeout`
+minutes, the daemon looks at the page:
+
+- **Quiet, nothing typed** → the window goes back to the provider's home page, in a new web process
+  started in the background. The old process, with everything the conversation held, ends. The next
+  time you summon the window it is already on the home page: nothing to load. The conversation
+  itself is a click away in the provider's own history.
+- **Busy or something unsent** (loading, playing sound, a popup or file dialog open, a download
+  running, text typed in a box or a file attached and not sent) → the page stays as it is, only the
+  in-memory caches are dropped, and the daemon looks again later (every minute while busy).
+
+Measured on the same machine against the Python version, with a fake provider whose page holds
+about 150 MiB (a long conversation): 340 MiB while in use, **195 MiB** once idle and home, against
+334 MiB for the Python version. On a light page the Rust version is about 11 MiB *heavier* (GTK 4's
+UI process is larger). Figures and method: [`docs/spec.md`](docs/spec.md) section 6. Real chat sites
+could not be measured from the build sandbox.
+
+A daemon started with `--background` counts its idle time from the start. To keep a page alive
+indefinitely, give `--idle-timeout` a very large value.
+
+---
+
+## Where things live
+
+| What | Where |
+|---|---|
+| Logins, cookies, web storage | `$XDG_DATA_HOME/llm-wrapper` (`~/.local/share/llm-wrapper`; `…/instances/NAME` for an instance) |
+| Disk cache | `$XDG_CACHE_HOME/llm-wrapper` (`~/.cache/llm-wrapper`) |
+| Provider list | `$XDG_CONFIG_HOME/llm-wrapper/providers.json` (`~/.config/llm-wrapper/`) |
+| Control socket | `$XDG_RUNTIME_DIR/llm-wrapper[-NAME].v1.sock` |
+| Single-instance lock, state file | `$XDG_RUNTIME_DIR/llm-wrapper[-NAME].lock`, `llm-wrapper[-NAME].json` |
+
+Everything is private to your user (`0700` / `0600`) and checked at each start. An existing directory
+with loose permissions is tightened and reported; a symlink or a foreign owner is refused.
 
 ---
 
 ## Hyprland integration
 
-For autostart and window behaviour, add the following to `hyprland.conf`.
+Add to `hyprland.conf`; `llm-wrapper` must be on the `PATH` Hyprland sees (or use the full path).
 
-### Autostart
-Launch the wrapper hidden on login:
 ```ini
-exec-once = /path/to/LLM-Wrapper/llm-wrapper --background
-```
+# autostart, hidden
+exec-once = llm-wrapper --background
 
-### Floating Window Rules
-```ini
+# floating window
 windowrulev2 = float, class:^(llm-wrapper)$
 windowrulev2 = size 794 1286, class:^(llm-wrapper)$
 windowrulev2 = move 78 74, class:^(llm-wrapper)$
 windowrulev2 = pin, class:^(llm-wrapper)$
+
+# keys
+bind = $mainMod, G, exec, llm-wrapper --toggle
+bind = $mainMod CTRL,  G, exec, llm-wrapper --hard-clean
+bind = $mainMod SHIFT, G, exec, llm-wrapper --new-chat
 ```
 
-For a standalone instance, match its window class, e.g.:
-```ini
-windowrulev2 = float, class:^(llm-wrapper-gemini)$
-```
-
-### Keybindings
-```ini
-bind = $mainMod, G, exec, /path/to/LLM-Wrapper/llm-wrapper --toggle
-bind = $mainMod CTRL,  G, exec, /path/to/LLM-Wrapper/llm-wrapper --hard-clean
-bind = $mainMod SHIFT, G, exec, /path/to/LLM-Wrapper/llm-wrapper --new-chat
-```
+A standalone instance has its own class, e.g. `class:^(llm-wrapper-gemini)$`.
 
 ---
 
-## Integrating with Quickshell (or any UI)
+## Quickshell (or any UI)
 
-The running daemon writes its state to `$XDG_RUNTIME_DIR/llm-wrapper.json` (or `llm-wrapper-<name>.json` for an instance):
+The daemon writes its state to `$XDG_RUNTIME_DIR/llm-wrapper.json` (`llm-wrapper-NAME.json` for an
+instance), rewritten atomically on every change, so a UI can watch it:
 
 ```json
-{"instance": null, "active": "chatgpt", "url": "https://chatgpt.com", "visible": true, "providers": {"chatgpt": "https://chatgpt.com", "gemini": "https://gemini.google.com", "claude": "https://claude.ai"}}
+{"instance": null, "active": "chatgpt", "url": "https://chatgpt.com", "visible": true,
+ "providers": {"chatgpt": "https://chatgpt.com", "gemini": "https://gemini.google.com", "claude": "https://claude.ai"}}
 ```
 
-The file is rewritten atomically on every change (startup, switch, add, remove, visibility), so a UI can watch it. For an ad-hoc URL provider, `active` and `url` are both the URL.
-
-The UI drives the daemon only through CLI commands (`--provider`, `--add-provider`, `--remove-provider`, `--toggle`, ...).
+For an ad-hoc URL, `active` and `url` are both the URL. A UI drives the daemon only through the CLI
+commands. (The socket speaks a private binary protocol, [documented](docs/wire-protocol.md) for
+reference but not meant to be spoken by other programs.)
 
 ---
 
 ## Desktop entry
 
-Edit [`llm-wrapper.desktop`](llm-wrapper.desktop) to point `Exec=` to the repository location,
-copy it to `~/.local/share/applications/`, then run:
-
-```bash
-update-desktop-database ~/.local/share/applications
-```
+`make install` installs `llm-wrapper.desktop` (it runs `llm-wrapper --show`). If the menu does not
+pick it up: `update-desktop-database ~/.local/share/applications`.
 
 ---
 
-## Project structure
+## Coming from the Python version
+
+- **Command and flags are the same**; the window class (`llm-wrapper`, `llm-wrapper-NAME`), the
+  state file and the keys are unchanged, so existing Hyprland rules and Quickshell code keep working.
+- **The launcher path changes.** There is no `./llm-wrapper` script in the checkout any more: install
+  as above and point `exec-once`, key bindings and the desktop entry at the installed `llm-wrapper`.
+- **Logins are not migrated**: log in once again. Data moved out of the checkout to the XDG
+  directories above; the old `session/`, `cache/` and `instances/` folders can be deleted. If you
+  added providers, copy the old `providers.json` to `~/.config/llm-wrapper/`.
+- **Deliberate differences** (all listed with reasons in [`docs/spec.md`](docs/spec.md) section 5):
+  plain `http://` only for loopback addresses; unknown flags are errors; camera, microphone and DRM
+  media are off (no voice mode); a hidden idle page goes to the provider's home page instead of
+  only dropping caches; a failed download no longer also says "complete".
+- The Python app stays in [`legacy/`](legacy/README.md) as the reference the Rust version is checked
+  against.
+
+---
+
+## Project layout
 
 ```
-llm-wrapper           # Ultra-fast CLI & IPC launcher (~2-5ms)
-app.py                # GTK3 + WebKitGTK application server
-llm-wrapper.desktop
-cache/                # WebKit on-disk cache (persisted for fast cold-starts)
-session/              # Persistent session, cookies, and local storage
-providers.json        # your provider list (optional, gitignored)
-instances/            # data of standalone instances
+rust/crates/protocol   wire format, validation, CLI grammar (no dependencies)
+rust/crates/platform   runtime-directory checks, socket client, private files (no dependencies)
+rust/crates/ctl        the `llm-wrapper` command
+rust/crates/daemon     `llm-wrapperd`: window, navigation policy, memory policy
+rust/crates/e2e        black-box test suite, fake chat site, benchmark
+rust/scripts/          build-release.sh, e2e.sh
+docs/                  spec.md (behaviour and deviations), security.md, wire-protocol.md, baselines
+packaging/             desktop entry, Arch PKGBUILD
+legacy/                the retired Python version (reference only)
+Makefile               build / install / dist / test
 ```
 
-Feel free to tailor it further: the launcher is a tiny bash script and the whole app lives in `app.py`.
+Development: `make test` (format, clippy, unit tests); the end-to-end suite needs `xvfb-run`,
+`dbus-daemon` and is described in [`rust/README.md`](rust/README.md).
 
 ---
 

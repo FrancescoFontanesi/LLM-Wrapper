@@ -31,7 +31,7 @@ import sys
 from pathlib import Path
 from urllib.parse import urlparse
 
-APP = Path(__file__).resolve().parents[5] / "app.py"
+APP = Path(__file__).resolve().parents[5] / "legacy" / "app.py"
 
 
 def lift():

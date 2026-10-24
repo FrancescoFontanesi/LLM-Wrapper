@@ -1,7 +1,7 @@
 # llm-wrapper — Rust workspace
 
-The Rust rewrite of the Python wrapper in the repository root, built to be its final code base.
-Work proceeds in phases; the legacy app keeps working untouched until the Rust one reaches parity.
+The Rust rewrite of the Python wrapper, now the code base of the project (user documentation:
+`../README.md`). The original app is kept in `../legacy/` as the reference the suite checks against.
 
 | Phase | Status |
 |---|---|
@@ -10,7 +10,7 @@ Work proceeds in phases; the legacy app keeps working untouched until the Rust o
 | 2 — GTK4 + WebKitGTK 6.0 daemon (`llm-wrapperd`): window, control socket, XDG storage, single instance | done — the whole e2e suite passes against it |
 | 3 — navigation policy, compatibility profile (User-Agent, JavaScript environment), permissions, pop-ups, downloads/uploads, notifications | done — one profile for all providers, see `../docs/spec.md` V15–V21 |
 | 4 — memory policy: a hidden, idle page goes back to the provider's home page (instant to show, no conversation kept), nothing typed is lost | done — see `../docs/spec.md` V22 and the phase 4 table in section 6 |
-| 5 — packaging, retirement of the Python app | not started |
+| 5 — packaging (`../Makefile`, desktop entry, Arch PKGBUILD), the Python app retired to `../legacy/` | done — see `../packaging/README.md` and the end of section 5 of `../docs/spec.md` |
 
 ```
 crates/protocol   wire format, validation, CLI grammar — no dependencies, parses untrusted bytes
@@ -28,7 +28,7 @@ scripts/          build-release.sh (static client + daemon), e2e.sh (suite / ben
 cargo test --workspace                 # unit + integration; e2e tests skip without a display
 cargo clippy --workspace --all-targets -- -D warnings
 cargo fmt --all --check
-scripts/build-release.sh [DIR]         # static-pie `llm-wrapper` client + `llm-wrapperd`, built with --locked
+scripts/build-release.sh DIR           # (absolute path; `make build` at the root does this) static-pie `llm-wrapper` client + `llm-wrapperd`, built with --locked
 scripts/e2e.sh                         # the spec against the legacy app (xvfb-run, dbus-daemon, python3-gi, WebKitGTK 4.1)
 scripts/e2e.sh --impl rust --rust-bin DIR
 scripts/e2e.sh --bench out.json

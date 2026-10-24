@@ -229,8 +229,23 @@ can be reverted by editing one function.
 | V22 | **A hidden page that has been idle for the idle timeout goes back to the provider's home page**: the web view loads the provider's own address (what opening the site in any browser shows: light, no conversation), so the next time the window is shown the home page is already there and nothing has to load. A conversation you left an hour ago is not reopened: you land on the home page, which is the intended use (the provider's own site keeps the conversation in its history). The legacy app only dropped the in-memory caches and kept the page. A daemon started hidden (`--background` at login) counts its idle time from the start; legacy never trimmed those at all. **Nothing typed is lost:** the page is left alone while it is loading, playing sound, has a pop-up or a file dialog open or a download running (looked at again every minute), and while it holds something typed or attached and not sent (text fields, text areas, `contenteditable` composers, password fields, a chosen file; asked in a JavaScript world of its own so the page cannot hide it; an answer the app cannot read keeps the page) — then it does what legacy did, drops the caches, and looks again after another idle period. A page that is already the provider's home page is not reloaded. | The memory a hidden page holds is the biggest cost of keeping the app resident (section 6), and a long conversation is what holds it. The page does not need to be kept: the provider's site loads only the latest part of a conversation and the older messages as you scroll up. To keep the legacy behaviour, give `--idle-timeout` a very large value (the maximum is 525 600 minutes). |
 | V23 | A failed download no longer also announces "Download complete", and one the user cancelled is not announced at all. | Legacy connected both handlers to events that both fire on failure. |
 
-What stays for later (decided earlier, listed so nobody assumes otherwise): packaging, and retiring
-the Python app. The compatibility profile is **one profile for
+Phase 5 (packaging and retirement of the Python app), as done:
+
+* The Python app and its bash launcher moved to `legacy/`, unchanged, **not deleted**: the end-to-end
+  suite still runs against them (that is what keeps section 4 honest) and the two fixture generators
+  read `app.py` from there. Nothing installs them; delete the directory when nobody needs either.
+* `make build`, `make install [PREFIX=… DESTDIR=…]`, `make uninstall`, `make dist` and `make test` at
+  the repository root; `packaging/llm-wrapper.desktop`; `packaging/arch/PKGBUILD` (never run with
+  `makepkg`). Details and what was and was not exercised: `packaging/README.md`.
+* The desktop entry runs `llm-wrapper --show`. The legacy one ran the launcher with no arguments,
+  which toggled: clicking the icon of a window that is already up would have hidden it.
+* The launcher path changes (there is no `./llm-wrapper` in the checkout): bindings, `exec-once`
+  lines and the desktop entry have to point at the installed command. This is the one
+  usage change of the whole rewrite that cannot be hidden; the README says so first thing.
+* Not done, on purpose: Flatpak, `.deb`/`.rpm` recipes, CI, a version bump (the crates are still
+  `0.1.0`), and moving `rust/` to the repository root.
+
+The compatibility profile is **one profile for
 every provider**: the legacy app had no per-provider differences and nothing known calls for any;
 add them when a site gives a reason.
 
