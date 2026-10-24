@@ -672,12 +672,14 @@ fn until(limit: Duration, cond: impl Fn() -> bool) -> bool {
     cond()
 }
 
-/// How many times the fake site was asked for its home page (the `/jump` address).
+/// How many times the fake site was asked for its home page (the `/jump` address) in `hits`.
+/// (Inside `FakeChat::wait` use the hits it hands over: asking the site again would lock twice.)
+fn jumps(hits: &[llm_wrapper_e2e::fakechat::Hit]) -> usize {
+    hits.iter().filter(|h| h.path.starts_with("/jump")).count()
+}
+
 fn home_loads(chat: &FakeChat) -> usize {
-    chat.hits()
-        .iter()
-        .filter(|h| h.path.starts_with("/jump"))
-        .count()
+    jumps(&chat.hits())
 }
 
 fn paths(chat: &FakeChat) -> Vec<String> {
@@ -718,7 +720,7 @@ fn s19_a_hidden_idle_page_goes_back_to_the_home_page_and_is_there_when_shown() {
         sb.daemon_log(0)
     );
     assert!(
-        chat.wait(SECS(15), |_| home_loads(&chat) == 2),
+        chat.wait(SECS(15), |h| jumps(h) == 2),
         "the home page was not loaded: {:?}",
         paths(&chat)
     );
@@ -834,7 +836,7 @@ fn s22_a_daemon_started_in_the_background_goes_home_too_and_switching_providers_
         "a daemon started hidden never went home; daemon: {}",
         sb.daemon_log(0)
     );
-    assert!(first.wait(SECS(15), |_| home_loads(&first) == 2));
+    assert!(first.wait(SECS(15), |h| jumps(h) == 2));
     assert!(web_processes(pid) >= 1);
     let (before_first, before_second) = (first.total(), second.total());
     // cleaning loads nothing
@@ -905,11 +907,11 @@ fn s23_a_new_chat_after_going_home_still_works_and_an_open_popup_keeps_the_page(
         "instance a never went home; daemon: {}",
         sb.daemon_log(0)
     );
-    assert!(chat.wait(SECS(15), |_| home_loads(&chat) == 2));
+    assert!(chat.wait(SECS(15), |h| jumps(h) == 2));
     let before = home_loads(&chat);
     assert_eq!(sb.run(&["--instance", "a", "--new-chat"]).code, 0);
     assert!(
-        chat.wait(SECS(15), |_| home_loads(&chat) > before),
+        chat.wait(SECS(15), |h| jumps(h) > before),
         "the provider's own address was not loaded: {:?}",
         paths(&chat)
     );
