@@ -833,7 +833,12 @@ fn s21_a_page_with_an_unsent_message_is_kept_until_it_is_sent() {
         "the page never went home once the message was sent; daemon: {}",
         sb.daemon_log(0)
     );
-    assert_eq!(home_loads(&chat), 2, "{:?}", paths(&chat));
+    // the log line comes as the load is started: the request follows once the new process is up
+    assert!(
+        chat.wait(SECS(15), |h| jumps(h) == 2),
+        "the home page was not loaded: {:?}",
+        paths(&chat)
+    );
 }
 
 #[test]
