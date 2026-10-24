@@ -10,9 +10,9 @@ use gtk4::{gdk, glib};
 use llm_wrapper_protocol::{Request, Response, Status};
 
 use crate::core::{self, Active, Model, Providers, Visibility, DEFAULT_IDLE_MINUTES};
+use crate::idle::{self, Decision};
 use crate::ipc::Reply;
 use crate::policy::Policy;
-use crate::reap::{self, Decision};
 use crate::recovery::Recovery;
 use crate::state::{Snapshot, StateFile};
 use crate::transfers::Transfers;
@@ -23,8 +23,6 @@ struct Mutable {
     model: Model,
     idle_minutes: u32,
     idle_timer: Option<glib::SourceId>,
-    /// While the page is let go: the address to bring back when the window is shown.
-    restore: Option<String>,
 }
 
 pub struct App {
@@ -55,18 +53,11 @@ impl App {
         instance: Option<String>,
         main_loop: glib::MainLoop,
     ) -> Rc<Self> {
-        let recovery = Recovery::new();
+        let recovery = Recovery::attach(&ui.view);
         let transfers = Transfers::new(ui.window.clone());
         transfers.attach_downloads(ui.session());
         let policy = Policy::new(ui.window.clone(), transfers.clone());
-        {
-            // every view the window ever has: the first one, and the ones built after a page was let go
-            let (recovery, policy) = (recovery.clone(), policy.clone());
-            ui.on_new_view(move |view| {
-                recovery.attach(view);
-                policy.attach(view);
-            });
-        }
+        policy.attach(&ui.view);
         let app = Rc::new(Self {
             ui,
             recovery,
@@ -80,16 +71,12 @@ impl App {
                 },
                 idle_minutes: DEFAULT_IDLE_MINUTES,
                 idle_timer: None,
-                restore: None,
             }),
             providers_file,
             instance,
             main_loop,
         });
         app.connect_signals();
-        // The first page is built before the socket listens: a command that arrives at once gets its
-        // answer in time, not after WebKit has started its processes.
-        app.ui.ensure_view();
         app
     }
 
@@ -190,8 +177,6 @@ impl App {
     fn activate(&self, active: Active) -> bool {
         let changed = self.st.borrow().model.active.as_ref() != Some(&active);
         if changed {
-            self.st.borrow_mut().restore = None; // the user asked for another page
-            self.ui.ensure_view(); // the page may have been let go
             self.ui.set_title_for(&active.name);
             self.recovery.note_requested(&active.url);
             self.policy.set_provider(&active.url);
@@ -210,8 +195,6 @@ impl App {
             .as_ref()
             .map(|a| a.url.clone());
         if let Some(url) = url {
-            self.st.borrow_mut().restore = None;
-            self.ui.ensure_view();
             self.recovery.note_requested(&url);
             self.ui.load(&url);
         }
@@ -247,32 +230,12 @@ impl App {
     fn on_visibility_changed(self: &Rc<Self>) {
         if self.ui.is_visible() {
             self.cancel_idle();
-            self.wake();
             self.ui.set_trimmed(false);
             self.ui.grab_focus();
         } else {
             self.schedule_idle();
         }
         self.write_state();
-    }
-
-    /// The window is on screen: if the page was let go, build it again and load what was there.
-    fn wake(&self) {
-        if self.ui.has_view() {
-            return;
-        }
-        let (restore, provider) = {
-            let mut st = self.st.borrow_mut();
-            let provider = st.model.active.as_ref().map(|a| a.url.clone());
-            (st.restore.take(), provider)
-        };
-        let Some(provider) = provider else { return };
-        let uri = reap::address_to_restore(restore.as_deref(), &provider);
-        self.ui.ensure_view();
-        self.ui.focus_when_loaded();
-        self.recovery.note_requested(&uri);
-        self.ui.load(&uri);
-        log::info("the page was built again");
     }
 
     fn schedule_idle(self: &Rc<Self>) {
@@ -301,24 +264,25 @@ impl App {
     }
 
     /// Why the page is in use right now, if it is.
-    fn busy(&self) -> Option<reap::Busy> {
+    fn busy(&self) -> Option<idle::Busy> {
         self.ui.busy().or_else(|| {
             if self.policy.popups_open() > 0 {
-                Some(reap::Busy::Popup)
+                Some(idle::Busy::Popup)
             } else {
                 self.transfers.engaged()
             }
         })
     }
 
-    /// The window has been hidden for the idle timeout: let the page go if nothing is lost by it,
-    /// otherwise do what the legacy app did (drop the in-memory caches) and look again later.
+    /// The window has been hidden for the idle timeout: send the page back to the provider's home if
+    /// nothing is lost by it, otherwise do what the legacy app did (drop the in-memory caches) and
+    /// look again later.
     fn on_idle(self: &Rc<Self>) {
-        if self.ui.is_visible() || !self.ui.has_view() {
+        if self.ui.is_visible() {
             return;
         }
         if self.busy().is_some() {
-            self.schedule_idle_in(reap::BUSY_RETRY);
+            self.schedule_idle_in(idle::BUSY_RETRY);
             return;
         }
         let me = self.clone();
@@ -327,8 +291,8 @@ impl App {
             if me.ui.is_visible() {
                 return; // summoned while the page was being asked
             }
-            match reap::decide(me.busy(), draft) {
-                Decision::Reap => me.reap(),
+            match idle::decide(me.busy(), draft) {
+                Decision::GoHome => me.go_home(),
                 Decision::LookAgain(after) => me.schedule_idle_in(after),
                 Decision::TrimAndKeep => {
                     log::info("the page holds something unsent: keeping it, dropping caches only");
@@ -340,23 +304,24 @@ impl App {
         });
     }
 
-    /// Let the page go: its web process ends with the view, and the window waits, empty.
-    fn reap(&self) {
+    /// Back to the provider's home page: what a long conversation held in memory goes with it, and
+    /// the next time the window is shown the page that is there is the light one, already loaded.
+    fn go_home(&self) {
         let provider = self
             .st
             .borrow()
             .model
             .active
             .as_ref()
-            .map(|a| a.url.clone())
-            .unwrap_or_default();
-        let current = self.ui.current_uri();
-        self.ui.set_trimmed(true); // no cached web process kept for the next page
-        self.ui.drop_view();
-        self.recovery.forget();
-        self.st.borrow_mut().restore =
-            Some(reap::address_to_restore(current.as_deref(), &provider));
-        log::info("the page was let go: hidden and idle, nothing unsent");
+            .map(|a| a.url.clone());
+        let Some(provider) = provider else { return };
+        if !idle::is_home(self.ui.current_uri().as_deref(), &provider) {
+            self.recovery.note_requested(&provider);
+            self.ui.load(&provider);
+            log::info("hidden and idle: back to the provider's home page");
+        }
+        self.ui.set_trimmed(true);
+        self.ui.soft_clean();
     }
 
     /// The assistant's key bindings (the same as the legacy app's).

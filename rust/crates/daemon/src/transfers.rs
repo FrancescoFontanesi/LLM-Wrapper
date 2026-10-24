@@ -71,11 +71,11 @@ impl Transfers {
     }
 
     /// Is a file dialog open, or a download running? Then the page is in use.
-    pub fn engaged(&self) -> Option<crate::reap::Busy> {
+    pub fn engaged(&self) -> Option<crate::idle::Busy> {
         if self.dialog_open.get() {
-            Some(crate::reap::Busy::Dialog)
+            Some(crate::idle::Busy::Dialog)
         } else if self.downloads.get() > 0 {
-            Some(crate::reap::Busy::Download)
+            Some(crate::idle::Busy::Download)
         } else {
             None
         }

@@ -640,7 +640,7 @@ fn s18_closed_popups_make_room_for_new_ones() {
     );
 }
 
-// ---- Phase 4: a hidden, idle page is let go -------------------------------------------------------
+// ---- Phase 4: a hidden, idle page goes back to the provider's home page ---------------------------
 
 /// `--idle-timeout 1` is the shortest the command line allows, so these take over a minute.
 macro_rules! slow {
@@ -650,6 +650,8 @@ macro_rules! slow {
         }
     };
 }
+
+const WENT_HOME: &str = "back to the provider's home page";
 
 fn web_processes(pid: u32) -> usize {
     proc::descendants(pid)
@@ -670,72 +672,72 @@ fn until(limit: Duration, cond: impl Fn() -> bool) -> bool {
     cond()
 }
 
+/// How many times the fake site was asked for its home page (the `/jump` address).
+fn home_loads(chat: &FakeChat) -> usize {
+    chat.hits()
+        .iter()
+        .filter(|h| h.path.starts_with("/jump"))
+        .count()
+}
+
+fn paths(chat: &FakeChat) -> Vec<String> {
+    chat.hits().iter().map(|h| h.path.clone()).collect()
+}
+
+/// A provider address that sends you on to `to`: "where you were" is not the provider's own page.
+fn jump_to(chat: &FakeChat, to: &str) -> String {
+    let encoded: String = to
+        .bytes()
+        .map(|b| {
+            if b.is_ascii_alphanumeric() {
+                (b as char).to_string()
+            } else {
+                format!("%{b:02X}")
+            }
+        })
+        .collect();
+    format!("{}jump?to={encoded}", chat.url())
+}
+
 #[test]
-fn s19_a_hidden_idle_page_is_let_go_and_comes_back_where_it_was() {
+fn s19_a_hidden_idle_page_goes_back_to_the_home_page_and_is_there_when_shown() {
     slow!();
     let mut sb = rust_daemon!("s19");
     let chat = FakeChat::start();
-    // the provider's address sends you on to a conversation: "where it was" is not the provider's own
-    let url = format!("{}jump?to=%2Fc%2Fabc-123", chat.url());
+    let url = jump_to(&chat, "/c/abc-123");
     let pid = sb.start(&["--provider", &url]);
     sb.wait_state(None, "daemon up", |s| s["url"] == url.as_str());
     assert!(chat.wait(SECS(20), |h| h.iter().any(|h| h.path == "/c/abc-123")));
+    assert_eq!(home_loads(&chat), 1);
     assert_eq!(sb.run(&["--idle-timeout", "1"]).code, 0);
     assert_eq!(sb.run(&["--hide"]).code, 0);
-    assert!(web_processes(pid) >= 1, "no web process to begin with");
 
     assert!(
-        until(SECS(100), || web_processes(pid) == 0),
-        "the web process is still there after the idle time; daemon: {}",
+        until(SECS(100), || sb.daemon_log(0).contains(WENT_HOME)),
+        "the page never went back home; daemon: {}",
         sb.daemon_log(0)
     );
     assert!(
-        sb.daemon_log(0).contains("the page was let go"),
-        "{}",
-        sb.daemon_log(0)
+        chat.wait(SECS(15), |_| home_loads(&chat) == 2),
+        "the home page was not loaded: {:?}",
+        paths(&chat)
     );
-    // nothing holds on to the view, so its memory is really returned (the daemon checks after 3 s)
-    thread::sleep(SECS(5));
-    assert!(
-        !sb.daemon_log(0).contains("outlived"),
-        "{}",
-        sb.daemon_log(0)
-    );
-    // the daemon itself carries on: state file, socket, answers
+    // the page is replaced, not the process: showing the window has nothing left to load
+    assert!(web_processes(pid) >= 1, "the web process was torn down");
+    let before = chat.total();
     assert_eq!(sb.state(None).unwrap()["visible"], false);
     assert_eq!(sb.state(None).unwrap()["url"], url.as_str());
-    let before = chat.total();
-    assert_eq!(
-        sb.run(&["--hide"]).code,
-        0,
-        "a hidden daemon must not wake up for --hide"
-    );
-    thread::sleep(SECS(1));
-    assert_eq!(chat.total(), before, "--hide rebuilt the page");
-
-    // summoned: the page you were on, not the provider's own address
+    assert_eq!(sb.run(&["--hide"]).code, 0);
     assert_eq!(sb.run(&["--show"]).code, 0);
     sb.wait_state(None, "window visible", |s| s["visible"] == true);
-    assert!(
-        chat.wait(SECS(15), |h| h.len() > before
-            && h[before..].iter().any(|h| h.path == "/c/abc-123")),
-        "the page did not come back: {:?}",
-        chat.hits()
-            .iter()
-            .map(|h| h.path.clone())
-            .collect::<Vec<_>>()
+    thread::sleep(SECS(2));
+    assert_eq!(
+        chat.total(),
+        before,
+        "showing the window loaded something: {:?}",
+        paths(&chat)
     );
-    assert!(
-        chat.hits()[before..]
-            .iter()
-            .all(|h| !h.path.starts_with("/jump")),
-        "it went back to the provider's own address first: {:?}",
-        chat.hits()
-            .iter()
-            .map(|h| h.path.clone())
-            .collect::<Vec<_>>()
-    );
-    assert!(web_processes(pid) >= 1);
+    assert_eq!(home_loads(&chat), 2, "{:?}", paths(&chat));
 }
 
 #[test]
@@ -786,12 +788,12 @@ fn s21_a_page_with_an_unsent_message_is_kept_until_it_is_sent() {
     slow!();
     let mut sb = rust_daemon!("s21");
     let chat = FakeChat::start();
-    // the message is "sent" (the box emptied) 75 s after the page loads: after the first look at
-    // 60 s, before the second at 120 s
-    let url = format!("{}draft?clear=75000", chat.url());
-    let pid = sb.start(&["--provider", &url]);
+    // the conversation page is "sent" (the box emptied) 75 s after it loads: after the first look
+    // at 60 s, before the second at 120 s
+    let url = jump_to(&chat, "/draft?clear=75000");
+    sb.start(&["--provider", &url]);
     sb.wait_state(None, "daemon up", |s| s["url"] == url.as_str());
-    assert!(chat.wait(SECS(20), |h| !h.is_empty()));
+    assert!(chat.wait(SECS(20), |h| h.iter().any(|h| h.path.starts_with("/draft"))));
     assert_eq!(sb.run(&["--idle-timeout", "1"]).code, 0);
     assert_eq!(sb.run(&["--hide"]).code, 0);
     let hits = chat.total();
@@ -804,49 +806,42 @@ fn s21_a_page_with_an_unsent_message_is_kept_until_it_is_sent() {
         "the draft was not noticed; daemon: {}",
         sb.daemon_log(0)
     );
-    assert!(
-        web_processes(pid) >= 1,
-        "the page was let go with a message in it"
-    );
-    assert!(!sb.daemon_log(0).contains("the page was let go"));
+    assert!(!sb.daemon_log(0).contains(WENT_HOME));
     assert_eq!(chat.total(), hits, "the page was reloaded");
 
-    // sent: let go at the next look
+    // sent: home at the next look
     assert!(chat.wait(SECS(60), |h| h.iter().any(|h| h.path == "/draft-sent")));
     assert!(
-        until(SECS(100), || web_processes(pid) == 0),
-        "the page was never let go once the message was sent; daemon: {}",
+        until(SECS(100), || sb.daemon_log(0).contains(WENT_HOME)),
+        "the page never went home once the message was sent; daemon: {}",
         sb.daemon_log(0)
     );
+    assert_eq!(home_loads(&chat), 2, "{:?}", paths(&chat));
 }
 
 #[test]
-fn s22_a_daemon_started_in_the_background_lets_go_too_and_a_new_provider_wakes_it() {
+fn s22_a_daemon_started_in_the_background_goes_home_too_and_switching_providers_still_works() {
     slow!();
     let mut sb = rust_daemon!("s22");
     let (first, second) = (FakeChat::start(), FakeChat::start());
-    let pid = sb.start(&[
-        "--background",
-        "--idle-timeout",
-        "1",
-        "--provider",
-        &first.url(),
-    ]);
-    sb.wait_state(None, "daemon up", |s| s["url"] == first.url().as_str());
-    assert!(first.wait(SECS(20), |h| !h.is_empty()));
-    assert!(web_processes(pid) >= 1);
+    let url = jump_to(&first, "/c/abc-123");
+    let pid = sb.start(&["--background", "--idle-timeout", "1", "--provider", &url]);
+    sb.wait_state(None, "daemon up", |s| s["url"] == url.as_str());
+    assert!(first.wait(SECS(20), |h| h.iter().any(|h| h.path == "/c/abc-123")));
     // never shown, never hidden: the idle time counts from the start
     assert!(
-        until(SECS(100), || web_processes(pid) == 0),
-        "a daemon started hidden never let go; daemon: {}",
+        until(SECS(100), || sb.daemon_log(0).contains(WENT_HOME)),
+        "a daemon started hidden never went home; daemon: {}",
         sb.daemon_log(0)
     );
+    assert!(first.wait(SECS(15), |_| home_loads(&first) == 2));
+    assert!(web_processes(pid) >= 1);
     let (before_first, before_second) = (first.total(), second.total());
-    // cleaning while it is let go does not wake it
+    // cleaning loads nothing
     assert_eq!(sb.run(&["--soft-clean"]).code, 0);
     assert_eq!(sb.run(&["--hard-clean"]).code, 0);
     thread::sleep(SECS(1));
-    assert_eq!(web_processes(pid), 0, "a clean-up woke the page");
+    assert_eq!(first.total(), before_first, "a clean-up loaded the page");
 
     // a provider chosen in the background is loaded at once, without a window
     let third = FakeChat::start();
@@ -871,14 +866,13 @@ fn s22_a_daemon_started_in_the_background_lets_go_too_and_a_new_provider_wakes_i
 }
 
 #[test]
-fn s23_a_new_chat_while_the_page_is_let_go_starts_from_the_provider_and_an_open_popup_keeps_the_page(
-) {
+fn s23_a_new_chat_after_going_home_still_works_and_an_open_popup_keeps_the_page() {
     slow!();
     let mut sb = rust_daemon!("s23");
-    // two daemons (instances), one reaped and asked for a new chat, one with a pop-up open
+    // two daemons (instances): one goes home and is asked for a new chat, one has a pop-up open
     let chat = FakeChat::start();
-    let url = format!("{}jump?to=%2Fc%2Fabc-123", chat.url());
-    let pid = sb.start(&[
+    let url = jump_to(&chat, "/c/abc-123");
+    sb.start(&[
         "--instance",
         "a",
         "--background",
@@ -889,8 +883,8 @@ fn s23_a_new_chat_while_the_page_is_let_go_starts_from_the_provider_and_an_open_
     ]);
     sb.wait_state(Some("a"), "instance a up", |s| s["url"] == url.as_str());
     let busy_chat = FakeChat::start();
-    let busy_url = format!("{}open?u=%2Fpopup-page", busy_chat.url());
-    let busy_pid = sb.start(&[
+    let busy_url = jump_to(&busy_chat, "/open?u=%2Fpopup-page");
+    sb.start(&[
         "--instance",
         "b",
         "--background",
@@ -907,53 +901,46 @@ fn s23_a_new_chat_while_the_page_is_let_go_starts_from_the_provider_and_an_open_
         .any(|h| h.path.starts_with("/popup-page"))));
 
     assert!(
-        until(SECS(100), || web_processes(pid) == 0),
-        "instance a never let go; daemon: {}",
+        until(SECS(100), || sb.daemon_log(0).contains(WENT_HOME)),
+        "instance a never went home; daemon: {}",
         sb.daemon_log(0)
     );
-    let before = chat.total();
+    assert!(chat.wait(SECS(15), |_| home_loads(&chat) == 2));
+    let before = home_loads(&chat);
     assert_eq!(sb.run(&["--instance", "a", "--new-chat"]).code, 0);
     assert!(
-        chat.wait(SECS(15), |h| h[before..]
-            .iter()
-            .any(|h| h.path.starts_with("/jump"))),
+        chat.wait(SECS(15), |_| home_loads(&chat) > before),
         "the provider's own address was not loaded: {:?}",
-        chat.hits()
-            .iter()
-            .map(|h| h.path.clone())
-            .collect::<Vec<_>>()
+        paths(&chat)
     );
 
-    // the one with a pop-up open was never let go, however long it has been hidden
+    // the one with a pop-up open stayed where it was, however long it has been hidden
     assert!(
-        web_processes(busy_pid) >= 1,
-        "a page with a pop-up open was let go"
-    );
-    assert!(
-        !sb.daemon_log(1).contains("the page was let go"),
+        !sb.daemon_log(1).contains(WENT_HOME),
         "{}",
         sb.daemon_log(1)
     );
+    assert_eq!(home_loads(&busy_chat), 1, "{:?}", paths(&busy_chat));
 }
 
 #[test]
-fn s24_a_page_that_is_loading_has_a_dialog_open_or_hides_its_draft_is_not_let_go() {
+fn s24_a_page_that_is_loading_has_a_dialog_open_or_hides_its_draft_does_not_go_home() {
     slow!();
     let mut sb = rust_daemon!("s24");
-    let quiet = FakeChat::start(); // the control: nothing to keep, so it is let go
+    let quiet = FakeChat::start(); // the control: nothing to keep, so it goes home
     let (loading, dialog, hostile) = (FakeChat::start(), FakeChat::start(), FakeChat::start());
     let late = FakeChat::start(); // busy at the first look, quiet by the second
+    let chats = [&quiet, &loading, &dialog, &hostile, &late];
     let urls = [
-        quiet.url(),
-        format!("{}slow-load", loading.url()),
-        format!("{}download-many", dialog.url()),
-        format!("{}draft-hostile", hostile.url()),
-        format!("{}slow-load?finish=75000", late.url()),
+        jump_to(&quiet, "/c/abc-123"),
+        jump_to(&loading, "/slow-load"),
+        jump_to(&dialog, "/download-many"),
+        jump_to(&hostile, "/draft-hostile"),
+        jump_to(&late, "/slow-load?finish=75000"),
     ];
-    let mut pids = Vec::new();
     for (i, url) in urls.iter().enumerate() {
         let name = format!("i{i}");
-        pids.push(sb.start(&[
+        sb.start(&[
             "--instance",
             &name,
             "--background",
@@ -961,7 +948,7 @@ fn s24_a_page_that_is_loading_has_a_dialog_open_or_hides_its_draft_is_not_let_go
             "1",
             "--provider",
             url,
-        ]));
+        ]);
         sb.wait_state(Some(&name), "instance up", |s| s["url"] == url.as_str());
     }
     assert!(dialog.wait(SECS(30), |h| h
@@ -970,8 +957,8 @@ fn s24_a_page_that_is_loading_has_a_dialog_open_or_hides_its_draft_is_not_let_go
 
     // the control goes; the others are looked at at least once more (a busy page every minute)
     assert!(
-        until(SECS(100), || web_processes(pids[0]) == 0),
-        "the control was never let go; daemon: {}",
+        until(SECS(100), || sb.daemon_log(0).contains(WENT_HOME)),
+        "the control never went home; daemon: {}",
         sb.daemon_log(0)
     );
     thread::sleep(SECS(45));
@@ -980,11 +967,12 @@ fn s24_a_page_that_is_loading_has_a_dialog_open_or_hides_its_draft_is_not_let_go
         (2, "a page with a dialog open"),
         (3, "a page hiding its draft"),
     ] {
-        assert!(web_processes(pids[i]) >= 1, "{what} was let go");
-        assert!(
-            !sb.daemon_log(i).contains("the page was let go"),
-            "{what}: {}",
-            sb.daemon_log(i)
+        assert!(!sb.daemon_log(i).contains(WENT_HOME), "{what} went home");
+        assert_eq!(
+            home_loads(chats[i]),
+            1,
+            "{what} was reloaded: {:?}",
+            paths(chats[i])
         );
     }
     assert!(
@@ -992,10 +980,10 @@ fn s24_a_page_that_is_loading_has_a_dialog_open_or_hides_its_draft_is_not_let_go
         "the hostile page hid its draft: {}",
         sb.daemon_log(3)
     );
-    // the one that was busy only for a while is let go at a later look
+    // the one that was busy only for a while goes home at a later look
     assert!(
-        until(SECS(100), || web_processes(pids[4]) == 0),
-        "a page that finished loading was never let go; daemon: {}",
+        until(SECS(100), || sb.daemon_log(4).contains(WENT_HOME)),
+        "a page that finished loading never went home; daemon: {}",
         sb.daemon_log(4)
     );
 }

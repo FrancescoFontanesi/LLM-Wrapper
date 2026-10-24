@@ -273,10 +273,13 @@ Document.prototype.querySelectorAll = function () { return []; };\
 Element.prototype.querySelectorAll = function () { return []; };\
 </script>";
 
-/// Sends the browser on to the address in `to` at once: the provider's own address is one page and
-/// the conversation you end up on is another.
-const JUMP: &str = "<!doctype html><title>jump</title><script>\
-location.replace(new URLSearchParams(location.search).get('to'));</script>";
+/// Sends the browser on to the address in `to` at once, the first time: the provider's own address
+/// is one page and the conversation you end up on is another. Asked for again in the same tab (what
+/// "back to the home page" does) it is the home page: light, and it stays.
+const JUMP: &str = "<!doctype html><title>jump</title><body><script>\
+if (sessionStorage.getItem('jumped')) { document.title = 'home'; document.body.textContent = 'home'; }\
+else { sessionStorage.setItem('jumped', '1'); location.replace(new URLSearchParams(location.search).get('to')); }\
+</script>";
 
 /// A page that holds about 150 MiB of memory, as a long conversation on a real site does (those
 /// measure in hundreds of MiB): what the memory policy has to give back.

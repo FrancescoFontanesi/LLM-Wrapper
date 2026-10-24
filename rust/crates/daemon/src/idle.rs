@@ -1,12 +1,16 @@
-//! When a hidden window has been idle long enough, the page is let go: the web view is destroyed,
-//! which ends the web process (the biggest part of the daemon's memory), and showing the window
-//! again builds a new view and loads the page you were on.
+//! What happens to a page while its window stays hidden and idle.
 //!
-//! Letting go costs something — an unsent message, a half-filled form, a file attached and not yet
+//! The provider's home page is cheap and is kept loaded, so showing the window is instant. A page
+//! the user went on to (a conversation, a long page) is not: after the idle timeout the hidden view
+//! is sent back to the provider's home, which lets go of everything the page held (a long chat can
+//! hold a lot) while the web process stays warm. The page you come back to is the home page, not
+//! the conversation: that one is a click away and is loaded from the site when asked for.
+//!
+//! Going home costs something — an unsent message, a half-filled form, a file attached and not yet
 //! sent, a page in the middle of loading or playing sound would be lost or cut — so it only happens
-//! when none of those is the case. If the page cannot be let go, the daemon falls back to the light
-//! trim the legacy app did (drop the in-memory caches) and looks again later. This module is the
-//! decision and the question put to the page; acting on it is `app.rs`.
+//! when none of those is the case. If the page cannot be sent home, the daemon falls back to the
+//! light trim the legacy app did (drop the in-memory caches) and looks again later. This module is
+//! the decision and the question put to the page; acting on it is `app.rs`.
 
 use std::time::Duration;
 
@@ -45,8 +49,8 @@ pub enum Draft {
 /// What to do now.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Decision {
-    /// Let the page go.
-    Reap,
+    /// Send the page back to the provider's home.
+    GoHome,
     /// Not now: look again after this long.
     LookAgain(Duration),
     /// Keep the page, drop the in-memory caches, and look again after the idle timeout.
@@ -60,7 +64,7 @@ pub fn decide(busy: Option<Busy>, draft: Draft) -> Decision {
         return Decision::LookAgain(BUSY_RETRY);
     }
     match draft {
-        Draft::None => Decision::Reap,
+        Draft::None => Decision::GoHome,
         Draft::Some | Draft::Unknown => Decision::TrimAndKeep,
     }
 }
@@ -79,18 +83,15 @@ pub fn draft_from(answer: Option<bool>) -> Draft {
     }
 }
 
-/// The address to bring back when the window is shown again: the page the user was on if it is a
-/// page of this provider (or one the app lets into the window), otherwise the provider's own.
-pub fn address_to_restore(current: Option<&str>, provider_url: &str) -> String {
-    match current {
-        Some(uri)
-            if matches!(uri.split_once(':'), Some((s, _)) if s.eq_ignore_ascii_case("http") || s.eq_ignore_ascii_case("https"))
-                && crate::nav::classify(uri, provider_url) == crate::nav::Verdict::Allow =>
-        {
-            uri.to_owned()
-        }
-        _ => provider_url.to_owned(),
+/// Is `current` the provider's home page already (nothing to go back from)? Same address, ignoring
+/// a trailing slash, the query and the fragment, and the case of the host.
+pub fn is_home(current: Option<&str>, provider_url: &str) -> bool {
+    fn key(u: &str) -> String {
+        let no_frag = u.split('#').next().unwrap_or(u);
+        let no_query = no_frag.split('?').next().unwrap_or(no_frag);
+        no_query.trim_end_matches('/').to_ascii_lowercase()
     }
+    current.is_some_and(|c| !c.is_empty() && key(c) == key(provider_url))
 }
 
 #[cfg(test)]
@@ -103,8 +104,8 @@ mod tests {
     }
 
     #[test]
-    fn a_quiet_page_without_a_draft_is_let_go() {
-        assert_eq!(decide(None, Draft::None), Decision::Reap);
+    fn a_quiet_page_without_a_draft_goes_home() {
+        assert_eq!(decide(None, Draft::None), Decision::GoHome);
     }
 
     #[test]
@@ -141,26 +142,24 @@ mod tests {
     }
 
     #[test]
-    fn the_page_you_were_on_comes_back_if_the_app_would_show_it_anyway() {
-        let provider = "https://chatgpt.com";
-        let r = |cur: Option<&str>| address_to_restore(cur, provider);
-        assert_eq!(
-            r(Some("https://chatgpt.com/c/abc-123")),
-            "https://chatgpt.com/c/abc-123"
-        );
-        assert_eq!(
-            r(Some("https://auth.openai.com/authorize?x=1")),
-            "https://auth.openai.com/authorize?x=1"
-        );
-        // what is not a page of the provider, or not a web page at all, is not brought back
-        assert_eq!(r(Some("https://example.org/")), provider);
-        assert_eq!(r(Some("http://chatgpt.com/c/1")), provider);
-        assert_eq!(r(Some("about:blank")), provider);
-        assert_eq!(r(Some("blob:https://chatgpt.com/1-2")), provider);
-        assert_eq!(r(Some("data:text/html,<p>")), provider);
-        assert_eq!(r(Some("file:///etc/passwd")), provider);
-        assert_eq!(r(Some("")), provider);
-        assert_eq!(r(None), provider);
+    fn the_home_page_is_recognised_whatever_its_decoration() {
+        let home = "https://chatgpt.com";
+        assert!(is_home(Some("https://chatgpt.com/"), home));
+        assert!(is_home(Some("https://chatgpt.com/?model=x#top"), home));
+        assert!(is_home(Some("HTTPS://ChatGPT.com"), home));
+        assert!(!is_home(Some("https://chatgpt.com/c/abc-123"), home));
+        assert!(!is_home(Some("https://auth.openai.com/"), home));
+        assert!(!is_home(Some(""), home));
+        assert!(!is_home(None, home));
+        // a provider with a path of its own
+        assert!(is_home(
+            Some("http://127.0.0.1:1/app/"),
+            "http://127.0.0.1:1/app"
+        ));
+        assert!(!is_home(
+            Some("http://127.0.0.1:1/other"),
+            "http://127.0.0.1:1/app"
+        ));
     }
 
     #[test]
