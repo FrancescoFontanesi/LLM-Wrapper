@@ -50,6 +50,11 @@ impl Policy {
         })
     }
 
+    /// Pop-up windows open now.
+    pub fn popups_open(&self) -> usize {
+        self.popups.get()
+    }
+
     /// The provider whose site the views are showing.
     pub fn set_provider(&self, url: &str) {
         url.clone_into(&mut self.provider.borrow_mut());

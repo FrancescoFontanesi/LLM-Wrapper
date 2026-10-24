@@ -185,12 +185,15 @@ fn serve(mut conn: TcpStream, hits: &Mutex<Vec<Hit>>) {
         return;
     }
     let route = path.split('?').next().unwrap_or("/").to_owned();
+    let path_query = path.clone();
     hits.lock().unwrap().push(Hit {
         path,
         user_agent,
         at: Instant::now(),
     });
     let (content_type, extra, body) = match route.as_str() {
+        "/jump" => ("text/html; charset=utf-8", "", JUMP),
+        "/heavy" => ("text/html; charset=utf-8", "", HEAVY),
         "/probe" => ("text/html; charset=utf-8", "", PROBE),
         "/probe-frame" => ("text/html; charset=utf-8", "", PROBE_FRAME),
         "/open" => ("text/html; charset=utf-8", "", OPEN),
@@ -211,6 +214,19 @@ fn serve(mut conn: TcpStream, hits: &Mutex<Vec<Hit>>) {
         ),
         _ => ("text/html; charset=utf-8", "", PAGE),
     };
+    // pages that are built when asked for
+    let built;
+    let body = match route.as_str() {
+        "/draft-matrix" => {
+            built = draft_matrix();
+            built.as_str()
+        }
+        "/draft" => {
+            built = draft_page(&path_query);
+            built.as_str()
+        }
+        _ => body,
+    };
     let body = body.as_bytes();
     let _ = write!(
         conn,
@@ -224,6 +240,17 @@ fn serve(mut conn: TcpStream, hits: &Mutex<Vec<Hit>>) {
 //
 // Each reports what it saw by requesting a path with the facts in the query string; tests read the
 // recorded hits. `u` in the query is the address the page links or opens.
+
+/// Sends the browser on to the address in `to` at once: the provider's own address is one page and
+/// the conversation you end up on is another.
+const JUMP: &str = "<!doctype html><title>jump</title><script>\
+location.replace(new URLSearchParams(location.search).get('to'));</script>";
+
+/// A page that holds about 150 MiB of memory, as a long conversation on a real site does (those
+/// measure in hundreds of MiB): what the memory policy has to give back.
+const HEAVY: &str = "<!doctype html><title>heavy</title><body><script>\
+window.keep = []; for (let i = 0; i < 150; i++) { const a = new Uint8Array(1 << 20); a.fill(i + 1); window.keep.push(a); }\
+document.body.textContent = 'holding ' + window.keep.length + ' MiB';</script>";
 
 /// What a web page can tell about the browser it runs in, and whether the app's style sheet applied.
 const PROBE: &str = "<!doctype html><title>probe</title><body>\
@@ -318,3 +345,50 @@ for (let i = 0; i < 5; i++) { const f = document.createElement('iframe'); f.styl
 
 /// What a download carries.
 const DOWNLOAD: &str = "payload-bytes";
+
+/// The question the daemon asks a hidden page before letting it go, run in a page against every kind
+/// of input, so the file the daemon ships is the file that is tested. Reports `{scene: answer}`.
+fn draft_matrix() -> String {
+    let probe = serde_json::to_string(include_str!("../../daemon/src/draft_probe.js")).unwrap();
+    format!(
+        "<!doctype html><title>draft matrix</title><body><script>\n\
+const SRC = {probe};\n\
+const probe = () => eval(SRC);\n\
+const results = {{}};\n\
+function scene(name, html, setup) {{ document.body.innerHTML = html; if (setup) setup(); results[name] = probe(); }}\n\
+scene('empty', '<textarea></textarea><input type=text><div contenteditable=true></div><input type=file>');\n\
+scene('textarea', '<textarea>hello</textarea>');\n\
+scene('textarea-blank', '<textarea>   \\n </textarea>');\n\
+scene('text-input', '<input type=text value=x>');\n\
+scene('input-without-type', '<input value=x>');\n\
+scene('search', '<input type=search value=q>');\n\
+scene('password', '<input type=password value=secret>');\n\
+scene('not-text', '<input type=hidden value=csrf><input type=checkbox checked><input type=radio checked><input type=range value=5>');\n\
+scene('contenteditable', '<div contenteditable=true>draft</div>');\n\
+scene('contenteditable-empty', '<div contenteditable=true><p><br></p></div>');\n\
+scene('contenteditable-newline', '<div contenteditable=true>\\n</div>');\n\
+scene('contenteditable-false', '<div contenteditable=false>text that cannot be edited</div>');\n\
+scene('contenteditable-plaintext', '<div contenteditable=plaintext-only>x</div>');\n\
+scene('file', '<input type=file id=f>', () => {{ const dt = new DataTransfer(); dt.items.add(new File(['a'], 'a.txt'));\n\
+ document.getElementById('f').files = dt.files; }});\n\
+scene('file-empty', '<input type=file>');\n\
+scene('unreadable', '<textarea></textarea>', () => {{ Object.defineProperty(document.querySelector('textarea'), 'value',\n\
+ {{ get() {{ throw new Error('boom'); }} }}); }});\n\
+fetch('/report-draft?' + encodeURIComponent(JSON.stringify(results)));\n\
+</script>"
+    )
+}
+
+/// A page with a message typed and not sent. `?clear=MS` sends it (empties the box) after that long.
+fn draft_page(path_with_query: &str) -> String {
+    let clear: u64 = path_with_query
+        .split_once("clear=")
+        .and_then(|(_, v)| v.split('&').next())
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(0);
+    format!(
+        "<!doctype html><title>draft</title><body style=\"margin:0\"><textarea id=t rows=5 cols=60>an unsent message</textarea>\
+<script>const t = document.getElementById('t'); const clear = {clear};\
+if (clear > 0) setTimeout(() => {{ t.value = ''; fetch('/draft-sent'); }}, clear);</script>"
+    )
+}

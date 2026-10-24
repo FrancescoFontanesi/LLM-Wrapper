@@ -36,9 +36,10 @@ struct Inner {
     crashes: VecDeque<Instant>,
 }
 
-/// Failure and crash handling for one web view.
+/// Failure and crash handling for the web view of the moment. The view can be let go and built
+/// again (see `reap.rs`); this outlives it and is attached to each new one.
 pub struct Recovery {
-    view: glib::WeakRef<WebView>,
+    view: RefCell<glib::WeakRef<WebView>>,
     inner: RefCell<Inner>,
 }
 
@@ -55,11 +56,25 @@ fn same_page(a: &str, b: &str) -> bool {
 }
 
 impl Recovery {
-    pub fn attach(view: &WebView) -> Rc<Self> {
+    /// Watch the network, once for the life of the daemon.
+    pub fn new() -> Rc<Self> {
         let this = Rc::new(Self {
-            view: view.downgrade(),
+            view: RefCell::new(glib::WeakRef::new()),
             inner: RefCell::default(),
         });
+        let r = this.clone();
+        gio::NetworkMonitor::default().connect_network_changed(move |_, available| {
+            if available {
+                r.attempt();
+            }
+        });
+        this
+    }
+
+    /// Watch `view` from now on (it replaces the one watched before).
+    pub fn attach(self: &Rc<Self>, view: &WebView) {
+        self.view.borrow().set(Some(view));
+        let this = self;
 
         let r = this.clone();
         view.connect_load_failed(move |_, _event, uri, error| {
@@ -84,14 +99,15 @@ impl Recovery {
         });
         let r = this.clone();
         view.connect_web_process_terminated(move |_, reason| r.on_crash(reason));
+    }
 
-        let r = this.clone();
-        gio::NetworkMonitor::default().connect_network_changed(move |_, available| {
-            if available {
-                r.attempt();
-            }
-        });
-        this
+    /// Forget every failure and the page to come back to: the view is being let go on purpose.
+    pub fn forget(&self) {
+        let mut s = self.inner.borrow_mut();
+        if let Some(t) = s.timer.take() {
+            t.remove();
+        }
+        *s = Inner::default();
     }
 
     /// The program itself is loading `url`: that supersedes any earlier failure.
@@ -153,7 +169,10 @@ impl Recovery {
 
     /// Retry the page that failed, now.
     fn attempt(&self) {
-        let (Some(view), uri) = (self.view.upgrade(), self.inner.borrow().failed.clone()) else {
+        let (Some(view), uri) = (
+            self.view.borrow().upgrade(),
+            self.inner.borrow().failed.clone(),
+        ) else {
             return;
         };
         let Some(uri) = uri else { return };
@@ -197,7 +216,7 @@ impl Recovery {
         ));
         let me = self.clone();
         glib::timeout_add_local_once(Duration::from_millis(300), move || {
-            if let (Some(view), Some(uri)) = (me.view.upgrade(), uri) {
+            if let (Some(view), Some(uri)) = (me.view.borrow().upgrade(), uri) {
                 view.load_uri(&uri);
             }
         });

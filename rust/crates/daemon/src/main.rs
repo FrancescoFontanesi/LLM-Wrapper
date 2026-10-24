@@ -14,6 +14,7 @@ mod notify;
 mod paths;
 mod policy;
 mod providers;
+mod reap;
 mod recovery;
 mod state;
 mod transfers;

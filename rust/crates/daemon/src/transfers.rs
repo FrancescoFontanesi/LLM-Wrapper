@@ -57,6 +57,8 @@ impl Drop for Busy {
 pub struct Transfers {
     window: gtk4::Window,
     dialog_open: Rc<Cell<bool>>,
+    /// Downloads started and not finished.
+    downloads: Rc<Cell<usize>>,
 }
 
 impl Transfers {
@@ -64,7 +66,19 @@ impl Transfers {
         Rc::new(Self {
             window,
             dialog_open: Rc::default(),
+            downloads: Rc::default(),
         })
+    }
+
+    /// Is a file dialog open, or a download running? Then the page is in use.
+    pub fn engaged(&self) -> Option<crate::reap::Busy> {
+        if self.dialog_open.get() {
+            Some(crate::reap::Busy::Dialog)
+        } else if self.downloads.get() > 0 {
+            Some(crate::reap::Busy::Download)
+        } else {
+            None
+        }
     }
 
     /// Handle every download the session starts.
@@ -79,7 +93,16 @@ impl Transfers {
             me.choose_destination(download, suggested);
             true
         });
-        download.connect_finished(|download| {
+        self.downloads.set(self.downloads.get() + 1);
+        // `failed` comes first and `finished` always follows, success or not
+        let failed = Rc::new(Cell::new(false));
+        let flag = failed.clone();
+        let count = self.downloads.clone();
+        download.connect_finished(move |download| {
+            count.set(count.get().saturating_sub(1));
+            if flag.get() {
+                return;
+            }
             let name = download
                 .destination()
                 .and_then(|d| {
@@ -90,8 +113,12 @@ impl Transfers {
                 .unwrap_or_else(|| "File".to_owned());
             notify::send("Download complete", &format!("Saved {name}"));
         });
-        download.connect_failed(|_, error| {
-            notify::send("Download failed", error.message());
+        download.connect_failed(move |_, error| {
+            failed.set(true);
+            // the user closing the dialog is not news
+            if !error.matches(webkit6::DownloadError::CancelledByUser) {
+                notify::send("Download failed", error.message());
+            }
         });
     }
 

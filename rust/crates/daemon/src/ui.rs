@@ -2,19 +2,27 @@
 //!
 //! One plain `GtkWindow` — deliberately not a `GtkApplication`, which would turn the window class
 //! (`app_id` on Wayland, `WM_CLASS` on X11) into the application id and break the compositor rules
-//! users have for `llm-wrapper`. One `WebView`: only the provider on screen is kept alive.
+//! users have for `llm-wrapper`. One `WebView`: only the provider on screen is kept alive, and it
+//! can be let go while the window is hidden and built again when the window is shown (`reap.rs`).
 
+use std::cell::{Cell, RefCell};
 use std::path::Path;
+use std::rc::Rc;
+use std::time::Duration;
 
 use gtk4::prelude::*;
 use gtk4::{gio, glib};
 use webkit6::prelude::*;
 use webkit6::{
-    CacheModel, CookieAcceptPolicy, CookiePersistentStorage, MemoryPressureSettings,
-    NetworkSession, Settings, WebContext, WebView, WebsiteDataTypes,
+    CacheModel, CookieAcceptPolicy, CookiePersistentStorage, LoadEvent, MemoryPressureSettings,
+    NetworkSession, Settings, UserContentManager, WebContext, WebView, WebsiteDataTypes,
 };
 
 use crate::compat;
+use crate::reap;
+
+/// Name of the JavaScript world the app's own questions to the page run in.
+const PROBE_WORLD: &str = "llm-wrapper-idle-probe";
 
 const DEFAULT_WIDTH: i32 = 794;
 const DEFAULT_HEIGHT: i32 = 1286;
@@ -23,13 +31,24 @@ const DEFAULT_HEIGHT: i32 = 1286;
 const FOCUS_PROMPT_JS: &str = "(function(){try{var el=document.querySelector('#prompt-textarea')||\
 document.querySelector('textarea, [contenteditable=\"true\"]');if(el){el.focus();}}catch(e){}})();";
 
+/// What is done with every view that is built.
+type ViewHook = Rc<dyn Fn(&WebView)>;
+
 /// Window, web view and the `WebKit` objects behind it.
 pub struct Ui {
     pub window: gtk4::Window,
-    pub view: WebView,
+    /// `None` while the page is let go.
+    view: RefCell<Option<WebView>>,
     session: NetworkSession,
     context: WebContext,
     settings: Settings,
+    content: UserContentManager,
+    /// What the user set with the zoom keys; a new view starts there.
+    zoom: Cell<f64>,
+    /// Called with every view built, to attach the policy and the recovery to it.
+    on_new_view: RefCell<Option<ViewHook>>,
+    /// Put the cursor in the chat box when the page that is loading now has loaded.
+    focus_when_loaded: Rc<Cell<bool>>,
 }
 
 /// The part of a URL a person recognises, for the window title.
@@ -93,17 +112,10 @@ impl Ui {
         settings.set_enable_encrypted_media(false);
         settings.set_user_agent(Some(&compat::user_agent()));
 
-        let view = WebView::builder()
-            .web_context(&context)
-            .network_session(&session)
-            .user_content_manager(&compat::content_manager())
-            .settings(&settings)
-            .build();
         let window = gtk4::Window::builder()
             .title("LLM")
             .default_width(DEFAULT_WIDTH)
             .default_height(DEFAULT_HEIGHT)
-            .child(&view)
             .build();
         window.connect_close_request(|w| {
             w.set_visible(false);
@@ -111,11 +123,123 @@ impl Ui {
         });
         Ok(Self {
             window,
-            view,
+            view: RefCell::new(None),
             session,
             context,
             settings,
+            content: compat::content_manager(),
+            zoom: Cell::new(1.0),
+            on_new_view: RefCell::new(None),
+            focus_when_loaded: Rc::default(),
         })
+    }
+
+    // ---- the web view's life -----------------------------------------------------------------
+
+    /// What to do with every view that is built (attach the policy, the recovery...).
+    pub fn on_new_view(&self, hook: impl Fn(&WebView) + 'static) {
+        *self.on_new_view.borrow_mut() = Some(Rc::new(hook));
+    }
+
+    /// The view, if the page has not been let go.
+    pub fn view(&self) -> Option<WebView> {
+        self.view.borrow().clone()
+    }
+
+    /// Is there a page, or has it been let go?
+    pub fn has_view(&self) -> bool {
+        self.view.borrow().is_some()
+    }
+
+    /// Build the view if there is none. Returns it when it was built just now.
+    pub fn ensure_view(&self) -> Option<WebView> {
+        if self.view.borrow().is_some() {
+            return None;
+        }
+        let view = WebView::builder()
+            .web_context(&self.context)
+            .network_session(&self.session)
+            .user_content_manager(&self.content)
+            .settings(&self.settings)
+            .build();
+        view.set_zoom_level(self.zoom.get());
+        let focus = self.focus_when_loaded.clone();
+        view.connect_load_changed(move |view, event| {
+            if event == LoadEvent::Finished && focus.replace(false) {
+                view.grab_focus();
+                view.evaluate_javascript(
+                    FOCUS_PROMPT_JS,
+                    None,
+                    None,
+                    gio::Cancellable::NONE,
+                    |_| {},
+                );
+            }
+        });
+        let hook = self.on_new_view.borrow().clone();
+        if let Some(hook) = hook {
+            hook(&view);
+        }
+        self.window.set_child(Some(&view));
+        *self.view.borrow_mut() = Some(view.clone());
+        Some(view)
+    }
+
+    /// Let the page go: take the view out of the window and drop it, which ends its web process.
+    /// Returns the address it was showing.
+    pub fn drop_view(&self) -> Option<String> {
+        let view = self.view.borrow_mut().take()?;
+        let uri = view.uri().map(|u| u.to_string());
+        // The window keeps the widget that has the focus alive (measured: a view that was shown and
+        // then dropped lives on, with its web process, until the focus is cleared).
+        gtk4::prelude::GtkWindowExt::set_focus(&self.window, None::<&gtk4::Widget>);
+        self.window.set_child(None::<&gtk4::Widget>);
+        // Destroying the view is not enough to end its web process: WebKit may keep it for the next
+        // page (measured: still running 40 s later), so it is told to go.
+        view.terminate_web_process();
+        uri
+    }
+
+    /// The page being loaded is the one the user is waiting for: focus the chat box when it is there.
+    pub fn focus_when_loaded(&self) {
+        self.focus_when_loaded.set(true);
+    }
+
+    /// The address on screen.
+    pub fn current_uri(&self) -> Option<String> {
+        self.view().and_then(|v| v.uri()).map(|u| u.to_string())
+    }
+
+    /// Why the page cannot be let go at this moment, if it cannot.
+    pub fn busy(&self) -> Option<reap::Busy> {
+        let view = self.view()?;
+        if !view.is_web_process_responsive() {
+            Some(reap::Busy::Unresponsive)
+        } else if view.is_loading() {
+            Some(reap::Busy::Loading)
+        } else if view.is_playing_audio() {
+            Some(reap::Busy::Audio)
+        } else {
+            None
+        }
+    }
+
+    /// Ask the page whether it holds something typed or attached that has not been sent.
+    pub async fn has_draft(&self) -> reap::Draft {
+        let Some(view) = self.view() else {
+            return reap::Draft::None;
+        };
+        let asked = glib::future_with_timeout(
+            Duration::from_secs(2),
+            // in a JavaScript world of its own: the page cannot replace the functions the probe uses
+            view.evaluate_javascript_future(reap::DRAFT_PROBE_JS, Some(PROBE_WORLD), None),
+        )
+        .await;
+        let answer = match asked {
+            Ok(Ok(value)) if value.is_boolean() => Some(value.to_boolean()),
+            _ => None,
+        };
+        reap::draft_from(answer)
     }
 
     // ---- window --------------------------------------------------------------------------------
@@ -158,14 +282,18 @@ impl Ui {
     // ---- page ----------------------------------------------------------------------------------
 
     pub fn load(&self, url: &str) {
-        self.view.load_uri(url);
+        if let Some(view) = self.view() {
+            view.load_uri(url);
+        }
     }
 
     pub fn reload(&self, bypass_cache: bool) {
-        if bypass_cache {
-            self.view.reload_bypass_cache();
-        } else {
-            self.view.reload();
+        if let Some(view) = self.view() {
+            if bypass_cache {
+                view.reload_bypass_cache();
+            } else {
+                view.reload();
+            }
         }
     }
 
@@ -174,23 +302,28 @@ impl Ui {
     }
 
     pub fn grab_focus(&self) {
-        self.view.grab_focus();
-        self.view
-            .evaluate_javascript(FOCUS_PROMPT_JS, None, None, gio::Cancellable::NONE, |_| {});
+        if let Some(view) = self.view() {
+            view.grab_focus();
+            view.evaluate_javascript(FOCUS_PROMPT_JS, None, None, gio::Cancellable::NONE, |_| {});
+        }
     }
 
-    /// Zoom by `delta`, never below 50 %; `None` resets to 100 %.
+    /// Zoom by `delta`, never below 50 %; `None` resets to 100 %. Kept for the views to come.
     pub fn zoom(&self, delta: Option<f64>) {
         let level = match delta {
-            Some(d) => (self.view.zoom_level() + d).max(0.5),
+            Some(d) => (self.zoom.get() + d).max(0.5),
             None => 1.0,
         };
-        self.view.set_zoom_level(level);
+        self.zoom.set(level);
+        if let Some(view) = self.view() {
+            view.set_zoom_level(level);
+        }
     }
 
     /// F12: open or close the Web Inspector.
     pub fn toggle_inspector(&self) {
-        if let Some(inspector) = self.view.inspector() {
+        let inspector = self.view().and_then(|v| v.inspector());
+        if let Some(inspector) = inspector {
             if inspector.is_attached() {
                 inspector.close();
             } else {

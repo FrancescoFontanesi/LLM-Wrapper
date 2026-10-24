@@ -47,24 +47,33 @@ fn role(pid: u32, daemon_key: &str) -> Option<&'static str> {
     })
 }
 
+/// Memory by process role: `<role>` is proportional resident size (shared pages split between their
+/// users); `<role>_anon` is the part that is private heap, which only exiting returns — the rest is
+/// mostly shared libraries and the page cache, clean pages the kernel takes back when it needs them.
 fn memory(sb: &Sandbox) -> Value {
     let key = if sb.is_legacy() {
         "app.py"
     } else {
         "llm-wrapperd"
     };
-    let mut by_role = std::collections::BTreeMap::<&str, u64>::new();
+    let mut pss = std::collections::BTreeMap::<&str, u64>::new();
+    let mut anon = std::collections::BTreeMap::<&str, u64>::new();
     for pid in proc::pids_in(sb.runtime.to_str().unwrap()) {
         if let Some(r) = role(pid, key) {
-            *by_role.entry(r).or_default() += proc::pss_kib(pid);
+            *pss.entry(r).or_default() += proc::pss_kib(pid);
+            *anon.entry(r).or_default() += proc::smaps_field_kib(pid, "Pss_Anon");
         }
     }
-    let total: u64 = by_role.values().sum();
     let mut out = serde_json::Map::new();
-    for (r, kib) in &by_role {
+    for (r, kib) in &pss {
         out.insert((*r).to_owned(), json!(kib / 1024));
+        out.insert(format!("{r}_anon"), json!(anon[r] / 1024));
     }
-    out.insert("total_mib".into(), json!(total / 1024));
+    out.insert("total_mib".into(), json!(pss.values().sum::<u64>() / 1024));
+    out.insert(
+        "total_anon_mib".into(),
+        json!(anon.values().sum::<u64>() / 1024),
+    );
     Value::Object(out)
 }
 
@@ -82,6 +91,11 @@ fn sh(cmd: &str, args: &[&str]) -> String {
         .output()
         .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_owned())
         .unwrap_or_default()
+}
+
+fn expect_ok(sb: &Sandbox, args: &[&str]) {
+    let o = sb.run(args);
+    assert_eq!(o.code, 0, "{args:?}: {}", o.stderr);
 }
 
 fn main() {
@@ -111,7 +125,10 @@ fn main() {
     // ---- steady state --------------------------------------------------------------------------
     let mut sb = Sandbox::new("bsteady");
     let chat = FakeChat::start();
-    sb.start_hidden(&chat.url());
+    // `--page heavy`: a page holding ~150 MiB, like a long conversation on a real site
+    let page = flag("--page", "");
+    let url = format!("{}{page}", chat.url());
+    sb.start_hidden(&url);
     assert!(
         chat.wait(Duration::from_secs(20), |h| !h.is_empty()),
         "page never loaded"
@@ -148,6 +165,36 @@ fn main() {
     thread::sleep(Duration::from_secs(4));
     let mem_visible = memory(&sb);
 
+    // ---- hidden and idle: what the memory policy is for -----------------------------------------
+    // --idle-timeout 1 is the shortest the command line allows; the wait covers it plus the check.
+    let idle_wait: u64 = flag("--idle-wait", "80")
+        .parse()
+        .expect("--idle-wait SECONDS");
+    let (mut mem_idle, mut wake) = (Value::Null, Value::Null);
+    if idle_wait > 0 {
+        expect_ok(&sb, &["--idle-timeout", "1"]);
+        expect_ok(&sb, &["--hide"]);
+        sb.wait_state(None, "window hidden", |s| s["visible"] == false);
+        thread::sleep(Duration::from_secs(idle_wait));
+        mem_idle = memory(&sb);
+        // summon it again: how long until the window is up, and until the page is asked for
+        let requests = chat.total();
+        let t0 = Instant::now();
+        expect_ok(&sb, &["--show"]);
+        while !sb.visible(None) {
+            assert!(
+                t0.elapsed() < Duration::from_secs(10),
+                "never became visible"
+            );
+            thread::sleep(Duration::from_micros(300));
+        }
+        let visible_ms = ms(t0.elapsed());
+        let request_ms = chat
+            .wait(Duration::from_secs(10), |h| h.len() > requests)
+            .then(|| ms(t0.elapsed()));
+        wake = json!({"window_visible_ms": visible_ms, "page_requested_ms": request_ms});
+    }
+
     let report = json!({
         "implementation": if sb.is_legacy() { "legacy (python, GTK3, WebKitGTK 4.1)" } else { "rust" },
         "conditions": {
@@ -156,13 +203,15 @@ fn main() {
             "cores": thread::available_parallelism().map(usize::from).unwrap_or(0),
             "webkit": sh("dpkg-query", &["-W", "-f=${Version}", "libwebkit2gtk-4.1-0"]),
             "display": "Xvfb (software rendering), fake chat page on loopback",
+            "page": if page.is_empty() { "light (a few KiB)" } else { page.as_str() },
         },
         "cold_start_ms": summary(cold),
         "hotkey_ms": {
             "launcher_wall": summary(wall),
             "command_to_state_visible_flip": summary(to_state),
         },
-        "memory_pss_mib": {"hidden": mem_hidden, "visible": mem_visible},
+        "memory_pss_mib": {"hidden": mem_hidden, "visible": mem_visible, "hidden_and_idle": mem_idle},
+        "wake_after_idle_ms": wake,
         "cpu_percent_while_hidden_10s": (cpu_pct_hidden * 100.0).round() / 100.0,
     });
     let text = serde_json::to_string_pretty(&report).unwrap();

@@ -4,7 +4,7 @@
 #   scripts/e2e.sh                      # legacy Python app (Phase 0 spec; needs python3 + PyGObject + WebKitGTK 4.1)
 #   scripts/e2e.sh --impl rust --rust-bin DIR    # Rust client/daemon found in DIR
 #   scripts/e2e.sh --slow               # also run the ~40 s offline-recovery scenario
-#   scripts/e2e.sh --bench [OUT.json]   # baseline measurements instead of tests
+#   scripts/e2e.sh --bench [OUT.json] [-- --page heavy --idle-wait 0]   # baseline measurements instead of tests
 #   scripts/e2e.sh -- <args for cargo test>
 #
 # Needs: xvfb-run, dbus-daemon, cargo. xdotool + xprop enable the keyboard/window-class tests, and
@@ -50,7 +50,7 @@ xvfb=(xvfb-run -a -s "-screen 0 1280x1600x24")
 if [ -n "$bench" ]; then
     cargo build --release -p llm-wrapper-e2e --bin bench >/dev/null
     out=(); [ "$bench" != - ] && out=(--out "$bench")
-    exec "${xvfb[@]}" ./target/release/bench "${out[@]}"
+    exec "${xvfb[@]}" ./target/release/bench "${out[@]}" "$@"
 fi
 
 log="$(mktemp "${TMPDIR:-/tmp}/lw-e2e.XXXXXX.log")"

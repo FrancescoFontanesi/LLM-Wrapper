@@ -107,6 +107,19 @@ pub fn pss_kib(pid: u32) -> u64 {
         .unwrap_or(0)
 }
 
+/// One field of `smaps_rollup` (`Pss_Anon`, `Pss_File`, `Pss_Shmem`...) in KiB.
+pub fn smaps_field_kib(pid: u32, field: &str) -> u64 {
+    let key = format!("{field}:");
+    fs::read_to_string(format!("/proc/{pid}/smaps_rollup"))
+        .ok()
+        .and_then(|s| {
+            s.lines()
+                .find(|l| l.starts_with(&key))
+                .and_then(|l| l.split_whitespace().nth(1)?.parse().ok())
+        })
+        .unwrap_or(0)
+}
+
 /// Clock ticks (user+system) the process has used so far.
 pub fn cpu_ticks(pid: u32) -> u64 {
     fs::read_to_string(format!("/proc/{pid}/stat"))
@@ -218,6 +231,14 @@ pub fn windows_named(pid: u32, pattern: &str) -> Vec<String> {
     .lines()
     .map(str::to_owned)
     .collect()
+}
+
+/// Ids of the mapped windows, of any process, whose name matches `pattern`.
+pub fn windows_titled(pattern: &str) -> Vec<String> {
+    run("xdotool", &["search", "--onlyvisible", "--name", pattern])
+        .lines()
+        .map(str::to_owned)
+        .collect()
 }
 
 /// Wait up to `limit` for a mapped window of `pid` named like `pattern`; its id.
