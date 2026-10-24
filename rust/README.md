@@ -49,7 +49,10 @@ scripts/e2e.sh --bench out.json
   bubblewrap run as root — it appeared on the build machine during phase 4), GTK believes it is
   sandboxed: it sets no `_NET_WM_PID` on its windows and may use the desktop portal for file
   dialogs. The suite copes (windows are then found by class or title), but a person at a desk would
-  find window rules by pid broken; the file is not something the app creates.
+  find window rules by pid broken; the file is not something the app creates. GIO then also asks the
+  desktop portal about the network state *synchronously at start*, so with a portal that does not
+  answer the daemon needs up to 25 s before it opens its socket (seen in the build sandbox, not on a
+  host without the file; the legacy app made the same call).
 * Quality gates: `unsafe` is forbidden in every crate of this workspace, clippy `all` and `pedantic`
   are errors, and the client side (`protocol`, `platform`, `ctl`) has no third-party dependencies.
   Details and the proof per control: `../docs/security.md`.

@@ -606,9 +606,15 @@ fn s17_a_page_asking_for_a_hundred_downloads_gets_at_most_one_dialog() {
         .filter(|h| h.path.starts_with("/download?"))
         .count()
         >= 2));
-    thread::sleep(Duration::from_secs(2));
-    let log = sb.daemon_log(0);
-    assert!(log.contains("another file dialog is already open"), "{log}");
+    // the refusal is logged as the further downloads reach the daemon: wait for it, not for a
+    // fixed time (a loaded machine took more than two seconds once)
+    assert!(
+        until(SECS(15), || sb
+            .daemon_log(0)
+            .contains("another file dialog is already open")),
+        "{}",
+        sb.daemon_log(0)
+    );
     // The dialog's window may carry no process id (it does not when the display is busy), so it is
     // found by its title; no other test in this binary opens a save dialog.
     assert!(

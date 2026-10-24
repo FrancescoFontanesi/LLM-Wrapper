@@ -2,8 +2,8 @@
 
 | What | Where | Status |
 |---|---|---|
-| Build / install / uninstall / tarball | `Makefile` (repository root) | `make build`, `make install DESTDIR=… PREFIX=…`, `make dist` exercised; the end-to-end suite was run against the installed layout |
-| Desktop entry | `packaging/llm-wrapper.desktop` | installed by `make install` |
+| Build / install / uninstall / tarball | `Makefile` (repository root) | `make build`, `make install DESTDIR=… PREFIX=…`, `make uninstall`, `make dist` exercised; the end-to-end suite (without the slow scenarios) was run against the installed files, and a daemon was started and stopped through a symlink to the installed client |
+| Desktop entry | `packaging/llm-wrapper.desktop` | installed by `make install`; **not** checked with `desktop-file-validate` (not available here) |
 | Arch Linux | `packaging/arch/PKGBUILD` (`llm-wrapper-git`) | syntax checked only: **never run with `makepkg`** (this was built on Ubuntu) |
 
 Runtime dependencies: GTK 4, WebKitGTK 6.0, `bubblewrap` and `xdg-dbus-proxy` (WebKit sandboxes its web
