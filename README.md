@@ -8,9 +8,6 @@ WebKitGTK 6.0 window. Written in Rust.
 You can use it in two ways: one daemon with an instant provider switcher, or one standalone
 instance per provider.
 
-> This is the Rust rewrite. The original Python/GTK 3 app is retired and lives, for reference only,
-> in [`legacy/`](legacy/README.md). Usage is the same; the differences are listed under
-> [Coming from the Python version](#coming-from-the-python-version).
 
 ---
 
@@ -235,25 +232,6 @@ reference but not meant to be spoken by other programs.)
 `make install` installs `llm-wrapper.desktop` (it runs `llm-wrapper --show`). If the menu does not
 pick it up: `update-desktop-database ~/.local/share/applications`.
 
----
-
-## Coming from the Python version
-
-- **Command and flags are the same**; the window class (`llm-wrapper`, `llm-wrapper-NAME`), the
-  state file and the keys are unchanged, so existing Hyprland rules and Quickshell code keep working.
-- **The launcher path changes.** There is no `./llm-wrapper` script in the checkout any more: install
-  as above and point `exec-once`, key bindings and the desktop entry at the installed `llm-wrapper`.
-- **Logins are not migrated**: log in once again. Data moved out of the checkout to the XDG
-  directories above; the old `session/`, `cache/` and `instances/` folders can be deleted. If you
-  added providers, copy the old `providers.json` to `~/.config/llm-wrapper/`.
-- **Deliberate differences** (all listed with reasons in [`docs/spec.md`](docs/spec.md) section 5):
-  plain `http://` only for loopback addresses; unknown flags are errors; camera, microphone and DRM
-  media are off (no voice mode); a hidden idle page goes to the provider's home page instead of
-  only dropping caches; a failed download no longer also says "complete".
-- The Python app stays in [`legacy/`](legacy/README.md) as the reference the Rust version is checked
-  against.
-
----
 
 ## Project layout
 
